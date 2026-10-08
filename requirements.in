@@ -1,0 +1,15 @@
+# Direct dependencies only.
+# requirements.txt is the full pinned freeze from the working 3.11 venv.
+
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+httpx
+tenacity
+diskcache
+qiskit
+qiskit-aer
+numpy
+scipy
+pytest
