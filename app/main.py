@@ -1,14 +1,35 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import Response
+from starlette.staticfiles import StaticFiles
 
 from app.config import get_settings
+
+
+class NoCacheStaticFiles(StaticFiles):
+    """Serve frontend static files with Cache-Control: no-cache so browsers
+    never keep a stale asset around between edits.
+
+    This must cover CSS and HTML, not just JavaScript: without an explicit
+    directive Chromium applies heuristic freshness to stylesheets and will keep
+    serving an old styles.css after it has been rewritten on disk.
+    """
+
+    async def get_response(self, path: str, request: Request) -> Response:
+        response = await super().get_response(path, request)
+        if response.status_code == 200:
+            response.headers["Cache-Control"] = "no-cache, must-revalidate, max-age=0"
+            response.headers["Expires"] = "0"
+        return response
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -48,6 +69,57 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    from app.routers import ai
+    from app.routers import complexes
+    from app.routers import jobs
+    from app.routers import molecules
+    from app.routers import proteins
+    from app.routers import quantum
+
+    app.include_router(quantum.router)
+    app.include_router(molecules.router)
+    app.include_router(proteins.router)
+    app.include_router(complexes.router)
+    app.include_router(jobs.router)
+    app.include_router(ai.router)
+
+    frontend_dir = Path(__file__).resolve().parents[1] / "frontend" / "static"
+
+    if frontend_dir.is_dir():
+        stylesheet_version = "10"
+
+        async def _index(_request: Request) -> HTMLResponse:
+            index = frontend_dir / "index.html"
+            if not index.is_file():
+                raise HTTPException(status_code=404, detail="Frontend index.html not found")
+            content = index.read_text(encoding="utf-8")
+            # Version the stylesheet URL so a browser holding an old cached copy
+            # fetches the current file instead of reusing it.
+            html = content.replace(
+                "</head>",
+                f'<link rel="stylesheet" href="/app/styles.css?v={stylesheet_version}" /></head>',
+                1,
+            )
+            return HTMLResponse(content=html, status_code=200)
+
+        @app.get("/", include_in_schema=False)
+        async def _root(request: Request) -> HTMLResponse:
+            return await _index(request)
+
+        @app.get("/index.html", include_in_schema=False)
+        async def _index_html(request: Request) -> HTMLResponse:
+            return await _index(request)
+
+        @app.get("/docs", include_in_schema=False)
+        async def _redirect_docs() -> RedirectResponse:
+            return RedirectResponse(url="/api/docs")
+
+        app.mount(
+            "/app",
+            NoCacheStaticFiles(directory=str(frontend_dir), html=False),
+            name="frontend_static",
+        )
 
     @app.exception_handler(RequestValidationError)
     async def request_validation_exception_handler(

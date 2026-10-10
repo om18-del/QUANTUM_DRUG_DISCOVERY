@@ -1,0 +1,511 @@
+:root {
+  --bg: #0b0f1c;
+  --surface: #141a2b;
+  --surface-2: #1c2337;
+  --border: #2a3252;
+  --text: #e6eaf4;
+  --muted: #8892b5;
+  --accent: #6ea8fe;
+  --accent-2: #7c6bfe;
+  --ok: #6fcf97;
+  --warn: #f2c94a;
+  --err: #e57373;
+  --placeholder: #c4a2f5;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: #0b0f1c;
+  font-weight: 700;
+  padding: 4px 9px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+  font-size: 13px;
+}
+.brand-text { font-weight: 600; color: var(--text); }
+.topbar-meta { display: flex; align-items: center; gap: 12px; }
+.muted { color: var(--muted); }
+.status-badge {
+  font-size: 12px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.status-idle { color: var(--muted); }
+.status-ok { color: var(--ok); border-color: var(--ok); background: rgba(111, 207, 151, 0.12); }
+.status-warn { color: var(--warn); border-color: var(--warn); background: rgba(242, 201, 74, 0.12); }
+.status-err { color: var(--err); border-color: var(--err); background: rgba(229, 115, 115, 0.12); }
+.status-placeholder { color: var(--placeholder); border-color: var(--placeholder); background: rgba(196, 162, 245, 0.12); }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.tab {
+  appearance: none;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 500;
+}
+.tab:hover { color: var(--text); border-color: var(--border); }
+.tab.active { color: var(--text); background: var(--surface-2); border-color: var(--border); }
+
+.panels { padding: 18px; min-height: 70vh; }
+.panel[hidden] { display: none; }
+.panel-head { margin-bottom: 16px; }
+.panel-head h2 { margin: 0 0 4px; font-size: 18px; }
+.panel-sub { margin: 0; color: var(--muted); max-width: 70ch; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.card h3 { margin: 0 0 10px; font-size: 14px; color: var(--accent); }
+
+.form { display: grid; gap: 10px; }
+.field { display: flex; align-items: center; gap: 10px; }
+.field > span { flex: 1; color: var(--muted); }
+input[type=text], input[type=number], select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  width: 100%;
+  max-width: 260px;
+}
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+.btn {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.btn:hover { border-color: var(--accent); }
+.btn-primary { background: var(--accent); color: #0b0f1c; border-color: var(--accent); }
+.btn-primary:hover { opacity: 0.9; }
+
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.status-line {
+  font-size: 12px;
+  color: var(--muted);
+  min-height: 16px;
+  margin-top: 6px;
+}
+.status-line .ok { color: var(--ok); }
+.status-line .err { color: var(--err); }
+.status-line .placeholder { color: var(--placeholder); }
+
+.result-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-top: 10px;
+  font-size: 13px;
+}
+.result-card dl { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+.result-card dt { color: var(--muted); }
+.result-card dd { margin: 0; font-weight: 500; }
+.result-card .placeholder-note {
+  color: var(--placeholder);
+  background: rgba(196, 162, 245, 0.08);
+  border: 1px dashed var(--placeholder);
+  padding: 8px;
+  border-radius: 6px;
+}
+.result-card .error-note {
+  color: var(--err);
+  background: rgba(229, 115, 115, 0.08);
+  border: 1px dashed var(--err);
+  padding: 8px;
+  border-radius: 6px;
+}
+.result-card .computed-note {
+  color: var(--ok);
+  border-left: 2px solid var(--ok);
+  padding-left: 8px;
+}
+
+.chart-wrap {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  height: 220px;
+  position: relative;
+  overflow: hidden;
+}
+.chart-wrap canvas { width: 100%; height: 100%; display: block; }
+
+/* Shown inside the empty chart box, so an unavailable curve still looks like
+   an empty chart rather than a blank gap above the button. */
+.chart-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 14px;
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--bg);
+}
+.chart-empty:empty { display: none; }
+
+/* Unit/range/hint text under a field label. */
+.field-hint {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1.35;
+}
+
+/* Long-form explanation, collapsed by default: file paths and Colab
+   instructions belong one click away, not in the panel's face. */
+.detail-note {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  border-left: 2px solid var(--border);
+  padding-left: 8px;
+}
+.detail-note summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.detail-note summary:hover { color: var(--text); }
+.detail-note[open] summary { margin-bottom: 4px; }
+
+/* Breathing room between the collapsed explanation and the row of controls
+   underneath it: the details row used to sit flush against the button. */
+#h2-curve-detail { margin-bottom: 12px; }
+
+.list { display: flex; flex-direction: column; gap: 8px; }
+.list-item {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  cursor: pointer;
+}
+.list-item.selected { border-color: var(--accent); background: rgba(110, 168, 254, 0.08); }
+.list-item h4 { margin: 0 0 4px; font-size: 13px; }
+.list-item p { margin: 0; color: var(--muted); font-size: 12px; }
+
+.viewer-wrap {
+  background: radial-gradient(circle at 50% 35%, #16203a 0%, #0b0f1c 55%, #05070d 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  height: 360px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 3Dmol paints its canvas opaque, so the gradient is laid over it instead of
+   behind it: a soft lift near the top-centre and a darker vignette at the
+   corners. pointer-events keeps it out of the way of mouse rotation. */
+.viewer-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 30%,
+    rgba(110, 168, 254, 0.10) 0%,
+    rgba(11, 15, 28, 0) 48%,
+    rgba(5, 7, 13, 0.55) 100%);
+}
+
+/* The canvas clears to transparent so the wrap's gradient shows through. */
+.viewer-bg { background: radial-gradient(circle at 50% 35%, #16203a 0%, #0b0f1c 55%, #05070d 100%); }
+
+.viewer-canvas { width: 100%; height: 100%; }
+.viewer-canvas canvas { width: 100% !important; height: 100% !important; }
+
+/* How the structure was produced. Sits over the viewer so it is impossible to
+   mistake a flat 2D layout for a 3D model. */
+.method-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  max-width: calc(100% - 16px);
+  font-size: 11px;
+  line-height: 1.35;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(11, 15, 28, 0.85);
+  color: var(--muted);
+}
+.method-badge[data-kind="three-d"] { color: var(--ok); border-color: var(--ok); }
+.method-badge[data-kind="two-d"] { color: var(--warn); border-color: var(--warn); }
+.method-badge[data-kind="none"] { color: var(--err); border-color: var(--err); }
+
+/* Shared viewer controls: style, labels, auto-rotate (and conformer for the
+   molecule viewer). */
+.viewer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.vc { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.vc > span { white-space: nowrap; }
+.vc select {
+  max-width: 190px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+.vc-check { cursor: pointer; user-select: none; }
+.vc-check input { accent-color: var(--accent); }
+
+/* Collapsible long-form measurement rules. */
+.contact-rules {
+  margin-top: 8px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+}
+.contact-rules summary { cursor: pointer; color: var(--muted); }
+.contact-rules summary:hover { color: var(--text); }
+.contact-rules[open] summary { margin-bottom: 6px; }
+.contact-rules dl { margin: 0; display: grid; grid-template-columns: 1fr; gap: 4px 10px; }
+.contact-rules dt { color: var(--text); }
+.contact-rules dd { margin: 0 0 4px; }
+
+.foot {
+  margin-top: 18px;
+  padding: 10px 18px;
+  color: var(--muted);
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+
+/* --- Simulation results ------------------------------------------------- */
+
+.section-label {
+  margin: 12px 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.section-label:first-child { margin-top: 0; }
+
+.method-note {
+  color: var(--muted);
+  font-size: 12px;
+  border-left: 2px solid var(--border);
+  padding-left: 8px;
+  margin: 6px 0 0;
+}
+
+.findings { display: flex; flex-direction: column; gap: 8px; }
+.finding {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.finding.good { border-left-color: var(--ok); }
+.finding.caution { border-left-color: var(--warn); }
+.finding.bad { border-left-color: var(--err); }
+.finding.high { border-left-color: var(--ok); }
+.finding.moderate { border-left-color: var(--warn); }
+.finding.low { border-left-color: var(--err); }
+.finding-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.finding-head strong { font-size: 13px; }
+.finding-verdict {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+.finding-value { font-size: 12px; color: var(--text); }
+.finding-rationale { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.finding-source { font-size: 11px; color: var(--muted); opacity: 0.8; margin-top: 3px; }
+
+.steps { display: flex; flex-direction: column; gap: 8px; counter-reset: step; }
+.step {
+  display: flex;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.step.playing { border-color: var(--accent); background: rgba(110, 168, 254, 0.10); }
+.step-index {
+  flex: 0 0 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--accent);
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.step-body { flex: 1; min-width: 0; }
+.step-title { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.step-detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.chip {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 7px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 500;
+}
+.chip.computed { color: var(--ok); border-color: var(--ok); background: rgba(111, 207, 151, 0.10); }
+.chip.literature { color: var(--accent); border-color: var(--accent); background: rgba(110, 168, 254, 0.10); }
+.chip.skipped { color: var(--warn); border-color: var(--warn); background: rgba(242, 201, 74, 0.10); }
+
+.table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; }
+table.data {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  background: var(--surface);
+}
+table.data th, table.data td {
+  text-align: left;
+  padding: 6px 9px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+table.data th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; }
+table.data tr:last-child td { border-bottom: none; }
+table.data td.numeric { font-variant-numeric: tabular-nums; }
+table.data tr.flash td { background: rgba(242, 201, 74, 0.14); }
+.type-tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin-right: 3px;
+  color: var(--muted);
+}
+.type-tag.hydrogen_bond { color: #6ea8fe; border-color: #6ea8fe; }
+.type-tag.salt_bridge { color: #ff8f6b; border-color: #ff8f6b; }
+.type-tag.hydrophobic { color: #f2c94a; border-color: #f2c94a; }
+.type-tag.van_der_waals { color: #8892b5; border-color: #8892b5; }
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+}
+.metric {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.metric .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.metric .v { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.metric .sub { font-size: 11px; color: var(--muted); }
+
+.catalytic-list { display: flex; flex-direction: column; gap: 6px; }
+.catalytic {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.catalytic.hit { border-left-color: var(--ok); }
+.catalytic.miss { border-left-color: var(--muted); }
+.catalytic .dist { font-variant-numeric: tabular-nums; color: var(--ok); font-weight: 600; }
+
+/* A6: one column at both 380px and 800px. The grid's auto-fit min of 300px
+   would otherwise produce two columns from ~616px upward, so the breakpoint
+   sits above 800px rather than at a typical phone width. */
+@media (max-width: 860px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+/* Narrow phones: fields stack and the two-column result list becomes one
+   column, so nothing overflows at 380px. */
+@media (max-width: 480px) {
+  .panels { padding: 12px; }
+  .tabs { padding: 8px 12px; flex-wrap: wrap; }
+  .topbar { flex-wrap: wrap; gap: 8px; }
+  .field { flex-direction: column; align-items: stretch; gap: 4px; }
+  .field input, .field select { max-width: none; }
+  .result-card dl { grid-template-columns: 1fr; }
+  .metric-grid { grid-template-columns: 1fr 1fr; }
+  .viewer-controls { gap: 6px 10px; }
+  .vc select { max-width: 150px; }
+  .chart-wrap { height: 200px; }
+}

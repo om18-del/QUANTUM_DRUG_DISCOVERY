@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quantum Drug Discovery Explorer</title>
+  <script src="https://3dmol.csb.pitt.edu/build/3Dmol-min.js"></script>
+  <style>
+    .status-badge.status-err,
+    .status-line .err,
+    .error-note,
+    .result-card .error-note {
+      color: #ff6b6b;
+      border-color: #ff6b6b;
+      background: rgba(255, 107, 107, 0.10);
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">QD</span>
+      <span class="brand-text">Quantum Drug Discovery Explorer</span>
+    </div>
+    <div class="topbar-meta">
+      <span id="app-status" class="status-badge status-idle">connecting</span>
+      <span id="api-base-label" class="muted"></span>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-tab="quantum" type="button">Quantum Lab</button>
+    <button class="tab" data-tab="molecule" type="button">Molecule Explorer</button>
+    <button class="tab" data-tab="protein" type="button">Protein Viewer</button>
+    <button class="tab" data-tab="complexes" type="button">Drug-Target Studio</button>
+  </nav>
+
+  <main class="panels" id="panels">
+    <section class="panel" data-panel="quantum">
+      <header class="panel-head">
+        <h2>Quantum Lab</h2>
+        <p class="panel-sub">VQE energy demos on the local Qiskit stack. Every value is computed here or shown as a placeholder.</p>
+      </header>
+
+      <div class="grid">
+        <section class="card dashboard">
+          <h3>H2 dissociation curve</h3>
+          <div class="chart-wrap">
+            <canvas id="h2-curve" aria-label="H2 energy curve chart"></canvas>
+            <div id="h2-curve-empty" class="chart-empty" role="status"></div>
+          </div>
+          <div id="h2-curve-status" class="status-line"></div>
+          <div id="h2-curve-detail"></div>
+          <div class="row">
+            <button id="refresh-curve" class="btn btn-primary" type="button">Refresh curve</button>
+            <span id="curve-meta" class="muted"></span>
+          </div>
+        </section>
+
+        <section class="card dashboard">
+          <h3 data-i18n="simulate-heading">H2 simulate</h3>
+          <form id="simulate-form" class="form">
+            <label class="field">
+              <span>Bond length (angstrom)</span>
+              <input id="sim-bond" name="bond_length" type="number" step="0.01" min="0" max="5" value="0.74" />
+            </label>
+            <label class="field">
+              <span>Molecule</span>
+              <select id="sim-molecule" name="molecule">
+                <option value="H2">H2</option>
+                <option value="aspirin">aspirin</option>
+                <option value="caffeine">caffeine</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>
+                Shots
+                <small id="shots-hint" class="field-hint">measurement repetitions · 1–100000 · higher is slower</small>
+              </span>
+              <input id="sim-shots" name="shots" type="number" min="1" max="100000" value="1024" aria-describedby="shots-hint" />
+            </label>
+            <label class="field">
+              <span>
+                Noise
+                <small id="noise-hint" class="field-hint">0 = noiseless, 1 = fully noisy · range 0–1</small>
+              </span>
+              <input id="sim-noise" name="noise" type="number" step="0.01" min="0" max="1" value="0" aria-describedby="noise-hint" />
+            </label>
+            <div class="field">
+              <span></span>
+              <button id="simulate-run" class="btn btn-primary" type="button">Run simulation</button>
+            </div>
+          </form>
+          <div id="simulate-status" class="status-line"></div>
+          <div id="simulate-result" class="result-card" hidden></div>
+        </section>
+
+        <section class="card dashboard">
+          <h3>Hadamard demo</h3>
+          <div id="hadamard-result" class="result-card"></div>
+          <button id="refresh-hadamard" class="btn" type="button">Refresh demo</button>
+        </section>
+
+        <section class="card dashboard">
+          <h3>Resource estimate</h3>
+          <form id="resources-form" class="form">
+            <label class="field">
+              <span>Molecule</span>
+              <input id="resource-molecule" name="molecule" type="text" value="H2" maxlength="100" />
+            </label>
+            <div class="field">
+              <span></span>
+              <button id="resource-run" class="btn btn-primary" type="button">Estimate</button>
+            </div>
+          </form>
+          <div id="resource-status" class="status-line"></div>
+          <div id="resource-detail"></div>
+          <div id="resource-result" class="result-card" hidden></div>
+        </section>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="molecule" hidden>
+      <header class="panel-head">
+        <h2>Molecule Explorer</h2>
+        <p class="panel-sub">
+          Search PubChem, or simulate a molecule from its SMILES. The simulation runs a real
+          distance-geometry conformer search, minimises every conformer with a force field and
+          Boltzmann-weights the results before applying published drug-likeness rules.
+        </p>
+      </header>
+
+      <div class="grid">
+        <section class="card">
+          <h3>Search a molecule</h3>
+          <form id="search-form" class="form">
+            <label class="field">
+              <span>Name or query</span>
+              <input id="search-q" name="q" type="text" placeholder="aspirin" maxlength="200" />
+            </label>
+            <div class="field">
+              <span></span>
+              <button id="search-run" class="btn btn-primary" type="button">Search</button>
+            </div>
+          </form>
+          <div id="search-status" class="status-line"></div>
+          <div id="search-result" class="result-card" hidden></div>
+        </section>
+
+        <section class="card">
+          <h3>SMILES simulation</h3>
+          <form id="properties-form" class="form">
+            <label class="field">
+              <span>SMILES</span>
+              <input id="props-smiles" name="smiles" type="text" placeholder="CC(=O)Oc1ccccc1C(=O)O" maxlength="200" value="CC(=O)Oc1ccccc1C(=O)O" />
+            </label>
+            <label class="field">
+              <span>Conformers to search (1–32)</span>
+              <input id="sim-conformers" name="num_conformers" type="number" min="1" max="32" value="8" />
+            </label>
+            <div class="field">
+              <span></span>
+              <div class="row">
+                <button id="props-run" class="btn" type="button">Compute properties</button>
+                <button id="sim-run" class="btn btn-primary" type="button">Simulate molecule</button>
+              </div>
+            </div>
+          </form>
+          <div id="props-status" class="status-line"></div>
+          <div id="props-result" class="result-card" hidden></div>
+          <div id="sim-status" class="status-line"></div>
+          <div id="sim-result" class="result-card" hidden></div>
+        </section>
+
+        <section class="card">
+          <h3>3D structure</h3>
+          <div class="viewer-wrap">
+            <div id="mol-viewer" class="viewer-canvas"></div>
+            <span id="mol-method-badge" class="method-badge" hidden></span>
+            <div id="viewer-status" class="status-line"></div>
+          </div>
+          <div class="viewer-controls" id="mol-controls" hidden>
+            <label class="vc"><span>Style</span>
+              <select id="mol-style">
+                <option value="ballandstick" selected>ball-and-stick</option>
+                <option value="stick">stick</option>
+                <option value="spacefill">space-filling</option>
+                <option value="surface">translucent surface</option>
+              </select>
+            </label>
+            <label class="vc vc-check"><input id="mol-labels" type="checkbox" /> Atom labels</label>
+            <label class="vc vc-check"><input id="mol-rotate" type="checkbox" /> Auto-rotate</label>
+            <label class="vc"><span>Conformer</span><select id="mol-conformer"></select></label>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button id="mol-reset" class="btn" type="button" disabled>Reset view</button>
+            <button id="mol-2d" class="btn" type="button" disabled>Show 2D depiction</button>
+          </div>
+          <p class="muted" id="viewer-hint">Simulate a molecule to load its energy-minimised 3D structure here.</p>
+        </section>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="protein" hidden>
+      <header class="panel-head">
+        <h2>Protein Viewer</h2>
+        <p class="panel-sub">Look up a PDB entry and view its structure. Results come from RCSB PDB when available.</p>
+      </header>
+
+      <div class="grid">
+        <section class="card">
+          <h3>PDB id</h3>
+          <form id="protein-form" class="form">
+            <label class="field">
+              <span>PDB id (4 characters, starts with a digit)</span>
+              <input id="protein-id" type="text" placeholder="6LU7" maxlength="4" value="6LU7" />
+            </label>
+            <div class="field">
+              <span></span>
+              <button id="protein-fetch" class="btn btn-primary" type="button">Fetch</button>
+            </div>
+          </form>
+          <div id="protein-status" class="status-line"></div>
+          <div id="protein-result" class="result-card" hidden></div>
+        </section>
+
+        <section class="card">
+          <h3>Structure</h3>
+          <div class="viewer-wrap">
+            <div id="protein-viewer" class="viewer-canvas"></div>
+            <div id="protein-viewer-status" class="status-line"></div>
+          </div>
+          <div class="viewer-controls" id="protein-controls" hidden>
+            <label class="vc"><span>Protein</span>
+              <select id="protein-style">
+                <option value="cartoon" selected>cartoon (by chain)</option>
+                <option value="ballandstick">ball-and-stick</option>
+                <option value="stick">stick</option>
+                <option value="spacefill">space-filling</option>
+              </select>
+            </label>
+            <label class="vc vc-check"><input id="protein-labels" type="checkbox" /> Ligand labels</label>
+            <label class="vc vc-check"><input id="protein-rotate" type="checkbox" /> Auto-rotate</label>
+          </div>
+          <p class="muted" id="protein-viewer-hint">Fetch a PDB entry to load its structure file. Placeholder entries show a clear “not computed” state.</p>
+        </section>
+      </div>
+    </section>
+
+    <section class="panel" data-panel="complexes" hidden>
+      <header class="panel-head">
+        <h2>Drug-Target Studio</h2>
+        <p class="panel-sub">
+          Pick a curated drug–target complex and simulate how the drug engages its target. Every contact
+          distance, hydrogen bond, salt bridge and blocked catalytic residue below is measured from the
+          deposited crystal coordinates — no interaction values are invented.
+        </p>
+      </header>
+
+      <div class="grid">
+        <section class="card">
+          <h3>Curated complexes</h3>
+          <div id="complexes-status" class="status-line"></div>
+          <div id="complexes-list" class="list"></div>
+        </section>
+
+        <section class="card">
+          <h3>Mechanism of action</h3>
+          <div id="complex-detail" class="result-card">
+            <p class="muted">Select a complex to compute how the drug binds and blocks its target.</p>
+          </div>
+        </section>
+
+        <section class="card">
+          <h3>Bound complex</h3>
+          <div class="viewer-wrap">
+            <div id="complex-viewer" class="viewer-canvas"></div>
+            <div id="complex-viewer-status" class="status-line"></div>
+          </div>
+          <div class="viewer-controls" id="complex-controls" hidden>
+            <label class="vc"><span>Protein</span>
+              <select id="complex-style">
+                <option value="cartoon" selected>cartoon (by chain)</option>
+                <option value="ballandstick">ball-and-stick</option>
+                <option value="stick">stick</option>
+                <option value="spacefill">space-filling</option>
+              </select>
+            </label>
+            <label class="vc vc-check"><input id="complex-labels" type="checkbox" /> Residue labels</label>
+            <label class="vc vc-check"><input id="complex-rotate" type="checkbox" /> Auto-rotate</label>
+          </div>
+          <div class="row" style="margin-top:8px">
+            <button id="complex-play" class="btn btn-primary" type="button" disabled>Play mechanism</button>
+            <button id="complex-reset" class="btn" type="button" disabled>Reset view</button>
+          </div>
+          <p class="muted" id="complex-viewer-hint">Select a complex to load the protein together with its bound drug.</p>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span id="foot-meta"></span>
+  </footer>
+
+  <script type="module" src="/app/app.js?v=10"></script>
+</body>
+</html>

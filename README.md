@@ -27,6 +27,27 @@ Build to [SPEC.md](SPEC.md).
 Health check:
 - `GET /health`
 
+## Generating the H2 Hamiltonian artifact
+
+The Quantum Lab's H2 energy curve and its resource estimate are both built from one offline
+artifact, `app/data/hamiltonians/h2_sto3g.json`. That file is **not** committed, so until you
+generate it the app reports the curve and the estimate as *not available* rather than showing
+placeholder numbers.
+
+PySCF publishes no Windows wheel, so the precompute has to run where PySCF works — WSL or
+Google Colab:
+
+1. Open `scripts/precompute_hamiltonians.ipynb` in Colab (or run
+   `python scripts/precompute_hamiltonians.py` inside WSL).
+2. Install the pinned set the notebook lists (`pyscf`, `qiskit-nature` and their pins).
+3. Run the notebook end to end. It writes `h2_sto3g.json`.
+4. Save that file into `app/data/hamiltonians/` in this repository.
+5. Restart the server and open the Quantum Lab tab — “Refresh curve” will draw the curve.
+
+The viewer panels load `3Dmol-min.js` from `https://3dmol.csb.pitt.edu`, so the 3D viewers need
+that host to be reachable; the API itself never makes a network call at request time for the
+quantum panels.
+
 ## Important rules
 
 - No fabricated data.
@@ -34,6 +55,29 @@ Health check:
 - No secrets in the repo.
 - Heavy chemistry tooling is installed offline when needed.
 - Free hosting may wipe local disk; treat cache and job store as disposable unless persisted.
+
+## Reading the contact numbers
+
+The complex analysis (`/api/complexes/{id}/structure` and `/interactions`) classifies every
+protein/ligand atom pair within 4.5 Å from the deposited crystal coordinates. Two of the four
+labels are measurements and two are inferences, and the API says which is which via
+`contact_labels`:
+
+- `hydrophobic` and `close_contact` are **measured geometry** — direct heavy-atom distances.
+- `hydrogen_bond` and `salt_bridge` are a **geometric heuristic**. The deposited files contain
+  no hydrogens and no protonation states, so hydrogen bonding is inferred from element and atom
+  name, and a ligand O/N is treated as a possible anion/cation.
+
+**Hydrogen-bond and salt-bridge counts are upper bounds, not exact counts.** Every ligand N/O
+atom is treated as *both* a possible donor and a possible acceptor; the set of genuine donors and
+acceptors is a subset of that, so the rule can only over-count. A pair that fails the 3.5 Å
+cutoff while having acceptable geometry is reported separately in `near_miss_hydrogen_bonds`
+rather than being silently dropped — that is what explains a count of 0.
+
+Salt bridges are evaluated before hydrogen bonds and the first match wins, so a residue can be
+listed under both types. The per-type lists are therefore **overlapping**, not disjoint: the
+counts must not be summed, and `contact_summary` counts unique residues rather than atom pairs
+(`contact_summary_basis`).
 
 ## Build order
 

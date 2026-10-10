@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "generated_by": "backend scaffold",
+  "generated_at": "2026-10-08T00:00:00Z",
+  "note": "This manifest is a scaffold. Every entry below is placeholder unless its status field is \"computed\". Do not invent computed values.",
+  "molecules": [
+    {
+      "id": "aspirin",
+      "name": "Aspirin",
+      "smiles": "CC(=O)Oc1ccccc1C(=O)O",
+      "molecular_formula": "C9H8O4",
+      "molecular_weight": null,
+      "source": "pubchem",
+      "source_id": "2244",
+      "status": "placeholder",
+      "note": "No live PubChem lookup in this build. Replace fields from PubChem when external API is wired."
+    },
+    {
+      "id": "caffeine",
+      "name": "Caffeine",
+      "smiles": "CN1C=NC2=C1C(=O)N(C(=O)N2C)C",
+      "molecular_formula": "C8H10N4O2",
+      "molecular_weight": null,
+      "source": "pubchem",
+      "source_id": "2519",
+      "status": "placeholder",
+      "note": "No live PubChem lookup in this build."
+    },
+    {
+      "id": "ethanol",
+      "name": "Ethanol",
+      "smiles": "CCO",
+      "molecular_formula": "C2H6O",
+      "molecular_weight": null,
+      "source": "pubchem",
+      "source_id": "702",
+      "status": "placeholder",
+      "note": "No live PubChem lookup in this build."
+    }
+  ]
+}

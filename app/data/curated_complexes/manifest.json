@@ -1,0 +1,120 @@
+{
+  "version": 3,
+  "generated_by": "backend",
+  "generated_at": "2026-10-10T00:00:00Z",
+  "note": "Curated drug-target complexes selected from experimentally determined structures. Ligand codes and protein titles were read from the deposited PDB files and the RCSB entry API, not from memory. Interaction values are computed at request time from the deposited coordinates. Catalytic-residue identities are literature facts and are labelled as such; the statement that a given residue is (or is not) in contact is measured.",
+  "complexes": [
+    {
+      "id": "hiv-protease-indinavir",
+      "display_name": "HIV-1 protease with Indinavir",
+      "protein_pdb": "1HSG",
+      "protein_title": "Crystal structure at 1.9 A resolution of HIV II protease complexed with L-735,524 (indinavir)",
+      "target_origin": "viral",
+      "binding_site_type": "catalytic",
+      "ligand_name": "Indinavir",
+      "ligand_code": "MK1",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Viral aspartic protease (HIV-1 protease homodimer)",
+      "drug_class": "Peptidomimetic competitive active-site inhibitor",
+      "mechanism_summary": "HIV-1 protease is a homodimeric aspartic protease that cleaves the viral Gag-Pol polyprotein into the mature structural and enzymatic proteins the virus needs to become infectious. Indinavir is a peptidomimetic inhibitor shaped like the substrate transition state, so it binds the same active site the polyprotein would occupy.",
+      "consequence": "Because the polyprotein is never cleaved, the virus assembles non-infectious, immature virions. This is why HIV protease inhibitors must be present continuously: they block a step of maturation, not the production of viral RNA.",
+      "catalytic_residues": [
+        {"label": "Asp25 (chain A)", "match": "ASP A25", "role": "Catalytic aspartate of the dyad"},
+        {"label": "Asp25' (chain B)", "match": "ASP B25", "role": "Catalytic aspartate of the dyad"}
+      ],
+      "sources": [
+        "PDB entry 1HSG - Chen et al., J. Biol. Chem. 1994, 'Crystal structure at 1.9 A resolution of HIV II protease complexed with L-735,524'"
+      ]
+    },
+    {
+      "id": "hiv-rt-nevirapine",
+      "display_name": "HIV-1 reverse transcriptase with Nevirapine",
+      "protein_pdb": "1VRT",
+      "protein_title": "High resolution structures of HIV-1 RT from four RT-inhibitor complexes",
+      "target_origin": "viral",
+      "binding_site_type": "allosteric",
+      "ligand_name": "Nevirapine",
+      "ligand_code": "NVP",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Viral RNA-dependent DNA polymerase (HIV-1 reverse transcriptase)",
+      "drug_class": "Non-nucleoside reverse transcriptase inhibitor (NNRTI), non-competitive",
+      "mechanism_summary": "Reverse transcriptase copies the viral RNA genome into DNA, which the virus then inserts into the host chromosome. Nevirapine is a non-nucleoside inhibitor: it does not look like a nucleotide and does not bind the polymerase active site. It occupies a hydrophobic allosteric pocket in the p66 subunit roughly 10 A from the catalytic residues and locks the enzyme in an inactive conformation.",
+      "consequence": "With the enzyme held in that inactive shape, viral RNA is never copied into DNA and the replication cycle stops before integration. Because the site is allosteric rather than catalytic, a single point mutation in the pocket (for example K103N or Y181C) is often enough to abolish binding, which is why NNRTI resistance emerges readily.",
+      "binding_pocket_residues": [
+        {"label": "Tyr181", "match": "TYR A181", "role": "Hydrophobic pocket residue, a common resistance site"},
+        {"label": "Tyr188", "match": "TYR A188", "role": "Hydrophobic pocket residue"},
+        {"label": "Trp229", "match": "TRP A229", "role": "Hydrophobic pocket residue"},
+        {"label": "Pro236", "match": "PRO A236", "role": "Pocket residue at the pocket entrance"},
+        {"label": "Lys101", "match": "LYS A101", "role": "Pocket residue"},
+        {"label": "Lys103", "match": "LYS A103", "role": "Pocket residue, the K103N resistance site"}
+      ],
+      "catalytic_residues": [
+        {"label": "Asp110 (catalytic aspartate)", "match": "ASP A110", "role": "Catalytic residue of the polymerase active site"},
+        {"label": "Asp185 (catalytic aspartate)", "match": "ASP A185", "role": "Catalytic residue of the polymerase active site"},
+        {"label": "Asp186 (catalytic aspartate)", "match": "ASP A186", "role": "Catalytic residue of the polymerase active site"}
+      ],
+      "sources": [
+        "PDB entry 1VRT - Ren et al., Nat. Struct. Biol. 1995, 'High resolution structures of HIV-1 RT from four RT-inhibitor complexes'",
+        "PDB entry 1VRT - Ren et al., Nat. Struct. Biol. 1995, 'Mechanism of inhibition of HIV-1 reverse transcriptase by non-nucleoside inhibitors'"
+      ]
+    },
+    {
+      "id": "influenza-neuraminidase-oseltamivir",
+      "display_name": "Influenza A neuraminidase with Oseltamivir carboxylate",
+      "protein_pdb": "2HU4",
+      "protein_title": "N1 neuraminidase in complex with oseltamivir",
+      "target_origin": "viral",
+      "binding_site_type": "catalytic",
+      "ligand_name": "Oseltamivir carboxylate",
+      "ligand_code": "G39",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Viral sialidase (influenza A neuraminidase, N1 subtype)",
+      "drug_class": "Transition-state analogue competitive inhibitor",
+      "mechanism_summary": "Neuraminidase is the influenza enzyme that clips sialic acid residues off the surface of the infected cell and off newly budded virions. That clipping is what releases progeny virions so they can spread. Oseltamivir carboxylate is a transition-state analogue: its cyclohexene scaffold and carboxylate present the same features the enzyme recognises in its sialic-acid substrate, so it binds the catalytic site.",
+      "consequence": "New virions stay tethered to the infected cell and clump together instead of spreading, so the infection does not amplify efficiently. The enzyme is blocked, not the virus's entry or its genome copying.",
+      "catalytic_residues": [
+        {"label": "Arg118 (catalytic arginine)", "match": "ARG A118", "role": "Catalytic arginine triad member"},
+        {"label": "Asp151 (catalytic aspartate)", "match": "ASP A151", "role": "Catalytic residue"},
+        {"label": "Arg152 (catalytic arginine)", "match": "ARG A152", "role": "Catalytic residue"},
+        {"label": "Arg292 (catalytic arginine)", "match": "ARG A292", "role": "Catalytic arginine triad member"},
+        {"label": "Arg371 (catalytic arginine)", "match": "ARG A371", "role": "Catalytic arginine triad member"},
+        {"label": "Tyr406 (catalytic tyrosine)", "match": "TYR A406", "role": "Catalytic residue"}
+      ],
+      "sources": [
+        "PDB entry 2HU4 - Russell et al., Nature 2006, 'The structure of H5N1 avian influenza neuraminidase suggests new opportunities for drug design'"
+      ]
+    },
+    {
+      "id": "ace-lisinopril",
+      "display_name": "Human angiotensin-converting enzyme with Lisinopril (human enzyme example, not a virus)",
+      "protein_pdb": "1O86",
+      "protein_title": "Crystal structure of human angiotensin converting enzyme in complex with lisinopril",
+      "target_origin": "human",
+      "binding_site_type": "catalytic",
+      "ligand_name": "Lisinopril",
+      "ligand_code": "LPR",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Zinc metallopeptidase (human angiotensin-converting enzyme)",
+      "drug_class": "Zinc-binding competitive inhibitor",
+      "mechanism_summary": "Angiotensin-converting enzyme is a human zinc metallopeptidase that converts angiotensin I into the vasoconstrictor angiotensin II and degrades bradykinin. Lisinopril carries a carboxylate that coordinates the catalytic zinc ion and occupies the substrate-binding channel.",
+      "consequence": "With the enzyme blocked, angiotensin II production falls and bradykinin is preserved, which lowers blood pressure. This is a human drug target, included as an example of the same method applied to a non-viral enzyme. The structure also contains a zinc ion, chloride ions and a glycated lysine, all of which are excluded from the ligand analysis because they are not the drug.",
+      "catalytic_residues": [
+        {"label": "Glu384 (catalytic glutamate)", "match": "GLU A384", "role": "Catalytic residue"},
+        {"label": "His383 (zinc ligand)", "match": "HIS A383", "role": "Zinc-coordinating residue"},
+        {"label": "His387 (zinc ligand)", "match": "HIS A387", "role": "Zinc-coordinating residue"},
+        {"label": "Glu411 (zinc ligand)", "match": "GLU A411", "role": "Zinc-coordinating residue"}
+      ],
+      "sources": [
+        "PDB entry 1O86 - Natesh et al., Nature 2003, 'Crystal structure of the human angiotensin-converting enzyme-lisinopril complex'"
+      ]
+    }
+  ]
+}
