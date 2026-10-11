@@ -32,7 +32,7 @@ def get_complexes_list() -> ComplexesResponse:
         return _error_response(
             "manifest_unavailable",
             "Complexes manifest is unavailable",
-            int(HTTPStatus.service_unavailable),
+            int(HTTPStatus.SERVICE_UNAVAILABLE),
         )
 
 
@@ -45,7 +45,7 @@ def get_complex_interactions(complex_id: str) -> ComplexesResponse:
         return _error_response(
             "manifest_unavailable",
             "Complexes manifest is unavailable",
-            int(HTTPStatus.service_unavailable),
+            int(HTTPStatus.SERVICE_UNAVAILABLE),
         )
 
 
@@ -60,7 +60,7 @@ def get_complex_structure(complex_id: str) -> ComplexesResponse:
         return _error_response(
             "manifest_unavailable",
             "Complexes manifest is unavailable",
-            int(HTTPStatus.service_unavailable),
+            int(HTTPStatus.SERVICE_UNAVAILABLE),
         )
 
 
@@ -73,5 +73,5 @@ def get_complex_docking_validation(complex_id: str) -> ComplexesResponse:
         return _error_response(
             "manifest_unavailable",
             "Complexes manifest is unavailable",
-            int(HTTPStatus.service_unavailable),
+            int(HTTPStatus.SERVICE_UNAVAILABLE),
         )

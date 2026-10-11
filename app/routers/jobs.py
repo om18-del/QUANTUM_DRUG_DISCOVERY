@@ -28,5 +28,5 @@ def get_job_status(job_id: str) -> JobResponse:
         return _error_response(
             "job_not_found",
             f"No job with id {job_id!r}",
-            int(HTTPStatus.not_found),
+            int(HTTPStatus.NOT_FOUND),
         )
