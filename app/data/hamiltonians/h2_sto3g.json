@@ -1,0 +1,1992 @@
+{
+  "molecule": "H2",
+  "basis": "sto-3g",
+  "mapping": "parity",
+  "two_qubit_reduction": true,
+  "n_qubits": 2,
+  "units": "hartree",
+  "generated_by": "scripts/precompute_hamiltonians.py",
+  "library_versions": {
+    "qiskit": "1.4.6",
+    "qiskit-nature": "0.8.0",
+    "pyscf": "2.14.0"
+  },
+  "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+  "convention": "Each entry's pauli_terms describe the electronic Hamiltonian only. The smallest eigenvalue of those terms plus nuclear_repulsion_ha equals fci_energy_ha. Determine the ground energy by adding nuclear_repulsion_ha.",
+  "max_deviation_from_fci_ha": 2.4424906541753444e-15,
+  "point_count": 58,
+  "points": [
+    {
+      "bond_length_angstrom": 0.2,
+      "nuclear_repulsion_ha": 2.6458860546,
+      "hf_energy_ha": 0.16417501206169538,
+      "fci_energy_ha": 0.15748213479836348,
+      "qubit_energy_ha": -2.4884039198016357,
+      "qubit_energy_plus_nuclear_ha": 0.15748213479836437,
+      "deviation_from_fci_ha": 8.881784197001252e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "IZ",
+          "coefficient": 0.9304885285175835
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.9304885285175835
+        },
+        {
+          "pauli": "II",
+          "coefficient": -0.6343578506417702
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.1579727086280706
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.013623865138633229
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.25,
+      "nuclear_repulsion_ha": 2.11670884368,
+      "hf_energy_ha": -0.3050005337593622,
+      "fci_energy_ha": -0.3122699027007898,
+      "qubit_energy_ha": -2.428978746380788,
+      "qubit_energy_plus_nuclear_ha": -0.312269902700788,
+      "deviation_from_fci_ha": 1.7763568394002505e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "IZ",
+          "coefficient": 0.8706459577114374
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.8706459577114372
+        },
+        {
+          "pauli": "II",
+          "coefficient": -0.6938809491441635
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.15927658478468357
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.013463487127676449
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.3,
+      "nuclear_repulsion_ha": 1.7639240364000002,
+      "hf_energy_ha": -0.5938277585357272,
+      "fci_energy_ha": -0.6018037107656871,
+      "qubit_energy_ha": -2.3657277471656863,
+      "qubit_energy_plus_nuclear_ha": -0.6018037107656862,
+      "deviation_from_fci_ha": 8.881784197001252e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "IZ",
+          "coefficient": 0.8086489099089613
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.8086489099089611
+        },
+        {
+          "pauli": "II",
+          "coefficient": -0.7537419522077481
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.1608185192039294
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.013287977089943531
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.35,
+      "nuclear_repulsion_ha": 1.5119348883428574,
+      "hf_energy_ha": -0.7804549020715259,
+      "fci_energy_ha": -0.7892693924044136,
+      "qubit_energy_ha": -2.3012042807472692,
+      "qubit_energy_plus_nuclear_ha": -0.7892693924044119,
+      "deviation_from_fci_ha": 1.7763568394002505e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8106617807969868
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.7474158225606247
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.7474158225606247
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.16257322476428376
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.013103635503853905
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.4,
+      "nuclear_repulsion_ha": 1.3229430273,
+      "hf_energy_ha": -0.9043613941635389,
+      "fci_energy_ha": -0.9141497046270839,
+      "qubit_energy_ha": -2.237092731927082,
+      "qubit_energy_plus_nuclear_ha": -0.9141497046270821,
+      "deviation_from_fci_ha": 1.7763568394002505e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8625795316704498
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.6888194295644923
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.6888194295644923
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.1645154240225656
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.01291396933589628
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.45,
+      "nuclear_repulsion_ha": 1.1759493576,
+      "hf_energy_ha": -0.9875131377072348,
+      "fci_energy_ha": -0.9984155960160188,
+      "qubit_energy_ha": -2.174364953616017,
+      "qubit_energy_plus_nuclear_ha": -0.998415596016017,
+      "deviation_from_fci_ha": 1.7763568394002505e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9084021327946468
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.6338897827590029
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.6338897827590029
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.16662140112466886
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0127192030054189
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.5,
+      "nuclear_repulsion_ha": 1.05835442184,
+      "hf_energy_ha": -1.042996274540095,
+      "fci_energy_ha": -1.0551597944706248,
+      "qubit_energy_ha": -2.113514216310623,
+      "qubit_energy_plus_nuclear_ha": -1.055159794470623,
+      "deviation_from_fci_ha": 1.7763568394002505e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9477078769864241
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.5830796254889783
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.5830796254889783
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.1688702276897352
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.012516431584286836
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.55,
+      "nuclear_repulsion_ha": 0.962140383490909,
+      "hf_energy_ha": -1.0790507361774568,
+      "fci_energy_ha": -1.0926299067451062,
+      "qubit_energy_ha": -2.0547702902360134,
+      "qubit_energy_plus_nuclear_ha": -1.0926299067451044,
+      "deviation_from_fci_ha": 1.7763568394002505e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.980513904146725
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.5364887845888706
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.5364887845888705
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.1712445173649528
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.01230035365610102
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.6,
+      "nuclear_repulsion_ha": 0.8819620182000001,
+      "hf_energy_ha": -1.1011282422677016,
+      "fci_energy_ha": -1.1162860068695393,
+      "qubit_energy_ha": -1.9982480250695385,
+      "qubit_energy_plus_nuclear_ha": -1.1162860068695384,
+      "deviation_from_fci_ha": 8.881784197001252e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.007127077002363
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.49401378658636486
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.49401378658636474
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.17373064374565864
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.012064389707392958
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.65,
+      "nuclear_repulsion_ha": 0.8141187860307693,
+      "hf_energy_ha": -1.1129965456691677,
+      "fci_energy_ha": -1.1299047843229135,
+      "qubit_energy_ha": -1.9440235703536815,
+      "qubit_energy_plus_nuclear_ha": -1.1299047843229122,
+      "deviation_from_fci_ha": 1.3322676295501878e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0280504132444408
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.4554334202786255
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.4554334202786255
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.17631845161020698
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.011801922101754847
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.7,
+      "nuclear_repulsion_ha": 0.7559674441714287,
+      "hf_energy_ha": -1.1173490349902786,
+      "fci_energy_ha": -1.1361894540659225,
+      "qubit_energy_ha": -1.8921568982373493,
+      "qubit_energy_plus_nuclear_ha": -1.1361894540659208,
+      "deviation_from_fci_ha": 1.7763568394002505e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.043912521772926
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.4204556797828041
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.42045567978280407
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.1790005760614064
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.01150740217682722
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.74,
+      "nuclear_repulsion_ha": 0.7151043390810812,
+      "hf_energy_ha": -1.1167593073964255,
+      "fci_energy_ha": -1.1372838344885028,
+      "qubit_energy_ha": -1.852388173569583,
+      "qubit_energy_plus_nuclear_ha": -1.137283834488502,
+      "deviation_from_fci_ha": 8.881784197001252e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0534210769165213
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.3948443633559032
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.3948443633559032
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.18121046201519694
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.011246157150820946
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.75,
+      "nuclear_repulsion_ha": 0.70556961456,
+      "hf_energy_ha": -1.1161514489386022,
+      "fci_energy_ha": -1.1371170673457316,
+      "qubit_energy_ha": -1.8426866819057297,
+      "qubit_energy_plus_nuclear_ha": -1.1371170673457298,
+      "deviation_from_fci_ha": 1.7763568394002505e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0554030320779266
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.3887475880915998
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.3887475880915998
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.18177153657730466
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.011177144762525543
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.8,
+      "nuclear_repulsion_ha": 0.66147151365,
+      "hf_energy_ha": -1.1108503974765949,
+      "fci_energy_ha": -1.134147666677094,
+      "qubit_energy_ha": -1.7956191803270938,
+      "qubit_energy_plus_nuclear_ha": -1.1341476666770938,
+      "deviation_from_fci_ha": 2.220446049250313e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0632127971108682
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.35995942448627416
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.35995942448627405
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.18462678355606113
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.010809734956823552
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.85,
+      "nuclear_repulsion_ha": 0.6225614246117648,
+      "hf_energy_ha": -1.1025105539245945,
+      "fci_energy_ha": -1.1283618784581113,
+      "qubit_energy_ha": -1.7509233030698736,
+      "qubit_energy_plus_nuclear_ha": -1.1283618784581089,
+      "deviation_from_fci_ha": 2.4424906541753444e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0679850568392868
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.3337464949796544
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.33374649497965436
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.1875618479187798
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.010406068262238083
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.9,
+      "nuclear_repulsion_ha": 0.5879746788,
+      "hf_energy_ha": -1.091914041020057,
+      "fci_energy_ha": -1.1205602812999882,
+      "qubit_energy_ha": -1.7085349600999877,
+      "qubit_energy_plus_nuclear_ha": -1.1205602812999877,
+      "deviation_from_fci_ha": 4.440892098500626e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0702832690812558
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.3097872795279879
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.3097872795279878
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.19057169375926472
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.009969108317174291
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 0.95,
+      "nuclear_repulsion_ha": 0.5570286430736843,
+      "hf_energy_ha": -1.0796369282103724,
+      "fci_energy_ha": -1.1113394177361497,
+      "qubit_energy_ha": -1.6683680608098328,
+      "qubit_energy_plus_nuclear_ha": -1.1113394177361484,
+      "deviation_from_fci_ha": 1.3322676295501878e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.070577061628736
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.28779598993857225
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.2877959899385722
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.1936503169852439
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.009503470221825183
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.0,
+      "nuclear_repulsion_ha": 0.52917721092,
+      "hf_energy_ha": -1.0661086493179366,
+      "fci_energy_ha": -1.1011503302326187,
+      "qubit_energy_ha": -1.6303275411526186,
+      "qubit_energy_plus_nuclear_ha": -1.1011503302326187,
+      "deviation_from_fci_ha": 0.0,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0692434904119303
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.2675286499420859
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.26752864994208586
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.19679058348547004
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.009014930058166226
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.05,
+      "nuclear_repulsion_ha": 0.5039782961142857,
+      "hf_energy_ha": -1.051656755646838,
+      "fci_energy_ha": -1.0903421765127623,
+      "qubit_energy_ha": -1.5943204726270468,
+      "qubit_energy_plus_nuclear_ha": -1.090342176512761,
+      "deviation_from_fci_ha": 1.3322676295501878e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.066578409117172
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.2487832897551821
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.24878328975518202
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.19998426653596654
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.00850993686641413
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.1,
+      "nuclear_repulsion_ha": 0.4810701917454545,
+      "hf_energy_ha": -1.0365388750291795,
+      "fci_energy_ha": -1.0791929449690745,
+      "qubit_energy_ha": -1.5602631367145294,
+      "qubit_energy_plus_nuclear_ha": -1.079192944969075,
+      "deviation_from_fci_ha": 4.440892098500626e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0628124875471778
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.23139587714519122
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.23139587714519116
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.20322222662064948
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.007995175062925602
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.15,
+      "nuclear_repulsion_ha": 0.46015409645217403,
+      "hf_energy_ha": -1.0209641435798942,
+      "fci_energy_ha": -1.0679296589128588,
+      "qubit_energy_ha": -1.5280837553650328,
+      "qubit_energy_plus_nuclear_ha": -1.0679296589128588,
+      "deviation_from_fci_ha": 0.0,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0581275669720605
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.2152339371429274
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.21523393714292738
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.20649467482415496
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.007477201225847413
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.2,
+      "nuclear_repulsion_ha": 0.44098100910000004,
+      "hf_energy_ha": -1.005106706568489,
+      "fci_energy_ha": -1.0567407463052567,
+      "qubit_energy_ha": -1.4977217554052553,
+      "qubit_energy_plus_nuclear_ha": -1.0567407463052554,
+      "deviation_from_fci_ha": 1.3322676295501878e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.052670724558868
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2097914686224453
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.2001895767695586
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.2001895767695585
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.006962162429496654
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.25,
+      "nuclear_repulsion_ha": 0.42334176873600005,
+      "hf_energy_ha": -0.9891138140908916,
+      "fci_energy_ha": -1.0457831445498016,
+      "qubit_energy_ha": -1.4691249132858004,
+      "qubit_energy_plus_nuclear_ha": -1.0457831445498003,
+      "deviation_from_fci_ha": 1.3322676295501878e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.046564969915985
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2131024013141508
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.18617310319995767
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.18617310319995758
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0064555934890093425
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.3,
+      "nuclear_repulsion_ha": 0.40705939301538463,
+      "hf_energy_ha": -0.9731106157775778,
+      "fci_energy_ha": -1.0351862664342542,
+      "qubit_energy_ha": -1.4422456594496385,
+      "qubit_energy_plus_nuclear_ha": -1.0351862664342537,
+      "deviation_from_fci_ha": 4.440892098500626e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0399165885082027
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.21641745962374712
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.17310785296184228
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.17310785296184228
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.005962285638925258
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.35,
+      "nuclear_repulsion_ha": 0.39198311919999995,
+      "hf_energy_ha": -0.95720317507473,
+      "fci_energy_ha": -1.0250543624687882,
+      "qubit_energy_ha": -1.4170374816687878,
+      "qubit_energy_plus_nuclear_ha": -1.0250543624687878,
+      "deviation_from_fci_ha": 4.440892098500626e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0328197313165977
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.21972703573593874
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.16092639008976112
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.16092639008976112
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.005486217221390199
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.4,
+      "nuclear_repulsion_ha": 0.37798372208571435,
+      "hf_energy_ha": -0.9414806547077981,
+      "fci_energy_ha": -1.015468249288245,
+      "qubit_energy_ha": -1.3934519713739588,
+      "qubit_energy_plus_nuclear_ha": -1.0154682492882445,
+      "deviation_from_fci_ha": 4.440892098500626e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.025359035622365
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2230220890747147
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.1495679387688449
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.14956793876884486
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.005030536366542604
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.45,
+      "nuclear_repulsion_ha": 0.3649498006344828,
+      "hf_energy_ha": -0.9260171757381511,
+      "fci_energy_ha": -1.0064869318291216,
+      "qubit_energy_ha": -1.3714367324636036,
+      "qubit_energy_plus_nuclear_ha": -1.0064869318291207,
+      "deviation_from_fci_ha": 8.881784197001252e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0176110031222019
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.22629425934361333
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.13897677941251269
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.13897677941251263
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.004597585574594415
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.5,
+      "nuclear_repulsion_ha": 0.35278480728,
+      "hf_energy_ha": -0.9108735545943865,
+      "fci_energy_ha": -0.9981493534714101,
+      "qubit_energy_ha": -1.3509341607514096,
+      "qubit_energy_plus_nuclear_ha": -0.9981493534714097,
+      "deviation_from_fci_ha": 4.440892098500626e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.0096446943601924
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.22953593605970174
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.1291013128871109
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.1291013128871109
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0041889582600282416
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.55,
+      "nuclear_repulsion_ha": 0.3414046522064516,
+      "hf_energy_ha": -0.896098958324941,
+      "fci_energy_ha": -0.9904763409366262,
+      "qubit_energy_ha": -1.3318809931430766,
+      "qubit_energy_plus_nuclear_ha": -0.9904763409366251,
+      "deviation_from_fci_ha": 1.1102230246251565e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -1.001522113493736
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.23274029161766457
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.1198935373633664
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.1198935373633664
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0038055776890768
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.6,
+      "nuclear_repulsion_ha": 0.330735756825,
+      "hf_energy_ha": -0.8817324499460564,
+      "fci_energy_ha": -0.9834727290331731,
+      "qubit_energy_ha": -1.3142084858581724,
+      "qubit_energy_plus_nuclear_ha": -0.9834727290331724,
+      "deviation_from_fci_ha": 6.661338147750939e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9932985015661874
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.23590128539850805
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.11130874730832138
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.11130874730832131
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0034477894117742325
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.65,
+      "nuclear_repulsion_ha": 0.3207134611636364,
+      "hf_energy_ha": -0.8678043840012173,
+      "fci_energy_ha": -0.977129616166087,
+      "qubit_energy_ha": -1.2978430773297234,
+      "qubit_energy_plus_nuclear_ha": -0.977129616166087,
+      "deviation_from_fci_ha": 0.0,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9850226450061059
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.23901364608341236
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.10330532972950013
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.10330532972950013
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.003115459300252532
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.7,
+      "nuclear_repulsion_ha": 0.3112807123058824,
+      "hf_energy_ha": -0.854337626951292,
+      "fci_energy_ha": -0.9714266884583406,
+      "qubit_energy_ha": -1.2827074007642223,
+      "qubit_energy_plus_nuclear_ha": -0.9714266884583399,
+      "deviation_from_fci_ha": 6.661338147750939e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9767372364942457
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.24207283851910918
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.09584458668966869
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.09584458668966866
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.002808070616409891
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.75,
+      "nuclear_repulsion_ha": 0.3023869776685715,
+      "hf_energy_ha": -0.8413485984542792,
+      "fci_energy_ha": -0.9663345447803093,
+      "qubit_energy_ha": -1.2687215224488815,
+      "qubit_energy_plus_nuclear_ha": -0.96633454478031,
+      "deviation_from_fci_ha": 6.661338147750939e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9684792878352791
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.24507502046287874
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.0888905516623906
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.08889055166239057
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0025248150372093325
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.8,
+      "nuclear_repulsion_ha": 0.2939873394,
+      "hf_energy_ha": -0.8288481479269775,
+      "fci_energy_ha": -0.9618169527925803,
+      "qubit_energy_ha": -1.2558042921925798,
+      "qubit_energy_plus_nuclear_ha": -0.9618169527925798,
+      "deviation_from_fci_ha": 4.440892098500626e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9602805782727635
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.24801699347953907
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.08240979158898429
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.08240979158898429
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.002264674123755417
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.85,
+      "nuclear_repulsion_ha": 0.2860417356324324,
+      "hf_energy_ha": -0.8168422922508728,
+      "fci_energy_ha": -0.9578329678685787,
+      "qubit_energy_ha": -1.2438747035010111,
+      "qubit_energy_plus_nuclear_ha": -0.9578329678685787,
+      "deviation_from_fci_ha": 0.0,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.952168117903462
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2508961512677383
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.07637119958665117
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.07637119958665109
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.002026489193459269
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.9,
+      "nuclear_repulsion_ha": 0.27851432153684214,
+      "hf_energy_ha": -0.8053328448932775,
+      "fci_energy_ha": -0.9543388539987274,
+      "qubit_energy_ha": -1.2328531755355687,
+      "qubit_energy_plus_nuclear_ha": -0.9543388539987265,
+      "deviation_from_fci_ha": 8.881784197001252e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9441646082319912
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.25371042781261405
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.07074578851629647
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.07074578851629647
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0018090188344656588
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 1.95,
+      "nuclear_repulsion_ha": 0.2713729286769231,
+      "hf_energy_ha": -0.7943179655149313,
+      "fci_energy_ha": -0.9512897588020883,
+      "qubit_energy_ha": -1.2226626874790103,
+      "qubit_energy_plus_nuclear_ha": -0.9512897588020872,
+      "deviation_from_fci_ha": 1.1102230246251565e-15,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9362888865763017
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2564582470193268
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.06550649596835127
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.06550649596835122
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0016109843211503938
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.0,
+      "nuclear_repulsion_ha": 0.26458860546,
+      "hf_energy_ha": -0.783792654277353,
+      "fci_energy_ha": -0.9486411121761853,
+      "qubit_energy_ha": -1.213229717636186,
+      "qubit_energy_plus_nuclear_ha": -0.948641112176186,
+      "deviation_from_fci_ha": 6.661338147750939e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9285563458569799
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2591384748810566
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.060628008902259736
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.06062800890225971
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.001431103924146221
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.05,
+      "nuclear_repulsion_ha": 0.2581352248390244,
+      "hf_energy_ha": -0.7737492084058434,
+      "fci_energy_ha": -0.9463497373256126,
+      "qubit_energy_ha": -1.2044849621646365,
+      "qubit_energy_plus_nuclear_ha": -0.9463497373256121,
+      "deviation_from_fci_ha": 4.440892098500626e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9209793253011581
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.26175037476834634
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.05608661275595685
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.05608661275595679
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.00126811756820433
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.1,
+      "nuclear_repulsion_ha": 0.25198914805714284,
+      "hf_energy_ha": -0.7641776516167973,
+      "fci_energy_ha": -0.9443746811197422,
+      "qubit_energy_ha": -1.1963638291768848,
+      "qubit_energy_plus_nuclear_ha": -0.944374681119742,
+      "deviation_from_fci_ha": 2.220446049250313e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9135674704711645
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2642935660795621
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.05186006635691475
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.051860066356914605
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0011208035110542303
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.15,
+      "nuclear_repulsion_ha": 0.24612893531162794,
+      "hf_energy_ha": -0.7550661408488434,
+      "fci_energy_ha": -0.9426777856962748,
+      "qubit_energy_ha": -1.188806721007902,
+      "qubit_energy_plus_nuclear_ha": -0.9426777856962741,
+      "deviation_from_fci_ha": 6.661338147750939e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.9063280628513897
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2667679862476796
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.04792750102683173
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.0479275010268317
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0009879887445828628
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.2,
+      "nuclear_repulsion_ha": 0.24053509587272726,
+      "hf_energy_ha": -0.746401349991159,
+      "fci_energy_ha": -0.9412240336932618,
+      "qubit_energy_ha": -1.1817591295659888,
+      "qubit_energy_plus_nuclear_ha": -0.9412240336932616,
+      "deviation_from_fci_ha": 2.220446049250313e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8992663202189007
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2691738559384849
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.04426934017685207
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.04426934017685204
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0008685547087189938
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.25,
+      "nuclear_repulsion_ha": 0.23518987152,
+      "hf_energy_ha": -0.7381688272448945,
+      "fci_energy_ha": -0.9399817052005892,
+      "qubit_energy_ha": -1.1751715767205888,
+      "qubit_energy_plus_nuclear_ha": -0.9399817052005888,
+      "deviation_from_fci_ha": 4.440892098500626e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8923856694414964
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2715116471825281
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.040867234515941056
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.04086723451594103
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0007614397084843572
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.3,
+      "nuclear_repulsion_ha": 0.23007704822608702,
+      "hf_energy_ha": -0.7303533213548867,
+      "fci_energy_ha": -0.9389223859872746,
+      "qubit_energy_ha": -1.168999434213361,
+      "qubit_energy_plus_nuclear_ha": -0.938922385987274,
+      "deviation_from_fci_ha": 6.661338147750939e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8856879934249792
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.27378205414166146
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.037704007667484586
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.03770400766748455
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0006656391789749694
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.35,
+      "nuclear_repulsion_ha": 0.22518179188085105,
+      "hf_energy_ha": -0.7229390719684007,
+      "fci_energy_ha": -0.9380208647377858,
+      "qubit_energy_ha": -1.1632026566186366,
+      "qubit_energy_plus_nuclear_ha": -0.9380208647377856,
+      "deviation_from_fci_ha": 2.220446049250313e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8791738538477881
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2759859662072169
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.0347636073436799
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.034763607343679795
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0005802046858960908
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.4,
+      "nuclear_repulsion_ha": 0.22049050455000002,
+      "hf_energy_ha": -0.7159100604538067,
+      "fci_energy_ha": -0.9372549530096286,
+      "qubit_energy_ha": -1.1577454575596289,
+      "qubit_energy_plus_nuclear_ha": -0.9372549530096288,
+      "deviation_from_fci_ha": 2.220446049250313e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8728426911954568
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.27812444314879486
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.03203105805697162
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.03203105805697154
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0005042423055933443
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.45,
+      "nuclear_repulsion_ha": 0.21599069833469386,
+      "hf_energy_ha": -0.7092502192393472,
+      "fci_energy_ha": -0.936605256416193,
+      "qubit_energy_ha": -1.1525959547508868,
+      "qubit_energy_plus_nuclear_ha": -0.936605256416193,
+      "deviation_from_fci_ha": 0.0,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8666930035056193
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.28019869207028913
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.029492412441420188
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.029492412441420156
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0004369108144186007
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.5,
+      "nuclear_repulsion_ha": 0.21167088436800002,
+      "hf_energy_ha": -0.7029435997235269,
+      "fci_energy_ha": -0.9360549199556059,
+      "qubit_energy_ha": -1.1477258043236056,
+      "qubit_energy_plus_nuclear_ha": -0.9360549199556056,
+      "deviation_from_fci_ha": 2.220446049250313e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8607225051811079
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.28221004597538596
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.027134699425897756
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.027134699425897666
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.000377419941376661
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.55,
+      "nuclear_repulsion_ha": 0.20752047487058828,
+      "hf_energy_ha": -0.6969745007404486,
+      "fci_energy_ha": -0.9355893650259985,
+      "qubit_energy_ha": -1.1431098398965867,
+      "qubit_energy_plus_nuclear_ha": -0.9355893650259983,
+      "deviation_from_fci_ha": 2.220446049250313e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.854928267222768
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.28415994379176296
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.02494586859563079
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.02494586859563075
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0003250288029928161
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.6,
+      "nuclear_repulsion_ha": 0.20352969650769231,
+      "hf_energy_ha": -0.6913275611973779,
+      "fci_energy_ha": -0.9351960308474736,
+      "qubit_energy_ha": -1.138725727355166,
+      "qubit_energy_plus_nuclear_ha": -0.9351960308474738,
+      "deviation_from_fci_ha": 2.220446049250313e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8493068402577613
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.28604991174737815
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.022914730995436602
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.0229147309954366
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.00027904454356443564
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.65,
+      "nuclear_repulsion_ha": 0.199689513554717,
+      "hf_energy_ha": -0.6859878216937016,
+      "fci_energy_ha": -0.9348641289302553,
+      "qubit_energy_ha": -1.134553642484972,
+      "qubit_energy_plus_nuclear_ha": -0.9348641289302551,
+      "deviation_from_fci_ha": 2.220446049250313e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8438543617725575
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2878815460299905
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.021030897309375456
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.02103089730937543
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0002388211428899084
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.7,
+      "nuclear_repulsion_ha": 0.19599155959999998,
+      "hf_energy_ha": -0.6809407606225888,
+      "fci_energy_ha": -0.934584415936768,
+      "qubit_energy_ha": -1.1305759755367673,
+      "qubit_energy_plus_nuclear_ha": -0.9345844159367673,
+      "deviation_from_fci_ha": 6.661338147750939e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8385666489833704
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2896564966909407
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.019284714780166103
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.019284714780166096
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.00020375832111446668
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.75,
+      "nuclear_repulsion_ha": 0.19242807669818182,
+      "hf_energy_ha": -0.6761723104626471,
+      "fci_energy_ha": -0.934348987747307,
+      "qubit_energy_ha": -1.1267770644454889,
+      "qubit_energy_plus_nuclear_ha": -0.934348987747307,
+      "deviation_from_fci_ha": 0.0,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8334392787769646
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.29137645277527996
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.017667204421839472
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.01766720442183945
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.00017330045981467368
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.8,
+      "nuclear_repulsion_ha": 0.18899186104285717,
+      "hf_energy_ha": -0.6716688597517281,
+      "fci_energy_ha": -0.9341510956709365,
+      "qubit_energy_ha": -1.1231429567137932,
+      "qubit_energy_plus_nuclear_ha": -0.934151095670936,
+      "deviation_from_fci_ha": 4.440892098500626e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8284676561247681
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2930431286727851
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.0161700000666073
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.016170000066607272
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.0001469354633982234
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.85,
+      "nuclear_repulsion_ha": 0.18567621435789475,
+      "hf_energy_ha": -0.6674172456946884,
+      "fci_energy_ha": -0.9339849844401329,
+      "qubit_energy_ha": -1.1196611987980267,
+      "qubit_energy_plus_nuclear_ha": -0.933984984440132,
+      "deviation_from_fci_ha": 8.881784197001252e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8236470723128546
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2946582516891956
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.014785290619627946
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.014785290619627904
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.00012419349952833003
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.9,
+      "nuclear_repulsion_ha": 0.1824749003172414,
+      "hf_energy_ha": -0.6634047415990405,
+      "fci_energy_ha": -0.9338457507791564,
+      "qubit_energy_ha": -1.1163206510963977,
+      "qubit_energy_plus_nuclear_ha": -0.9338457507791562,
+      "deviation_from_fci_ha": 2.220446049250313e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8189727542434613
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2962235508352162
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.01350576662481489
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.013505766624814862
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -0.00010464557680950337
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 2.95,
+      "nuclear_repulsion_ha": 0.17938210539661015,
+      "hf_energy_ha": -0.6596190424624394,
+      "fci_energy_ha": -0.9337292208393847,
+      "qubit_energy_ha": -1.113111326235995,
+      "qubit_energy_plus_nuclear_ha": -0.9337292208393849,
+      "deviation_from_fci_ha": 2.220446049250313e-16,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8144399059577907
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.297740746824238
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.012324571919973902
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.012324571919973874
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -8.790193868886409e-05
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    },
+    {
+      "bond_length_angstrom": 3.0,
+      "nuclear_repulsion_ha": 0.17639240364,
+      "hf_energy_ha": -0.6560482511455911,
+      "fci_energy_ha": -0.9336318445584986,
+      "qubit_energy_ha": -1.1100242481984985,
+      "qubit_energy_plus_nuclear_ha": -0.9336318445584986,
+      "deviation_from_fci_ha": 0.0,
+      "n_qubits": 2,
+      "pauli_terms": [
+        {
+          "pauli": "II",
+          "coefficient": -0.8100437434129718
+        },
+        {
+          "pauli": "XX",
+          "coefficient": 0.2992115432597466
+        },
+        {
+          "pauli": "IZ",
+          "coefficient": 0.011235260822224001
+        },
+        {
+          "pauli": "ZI",
+          "coefficient": -0.011235260822223946
+        },
+        {
+          "pauli": "ZZ",
+          "coefficient": -7.361027182897772e-05
+        }
+      ],
+      "nuclear_repulsion_in_qubit_operator": false,
+      "energy_span_two_state_ha": null
+    }
+  ]
+}
