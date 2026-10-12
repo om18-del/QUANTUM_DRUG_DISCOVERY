@@ -123,6 +123,8 @@ def fetch_complex_structure(complex_id: str, manifest_path: Path) -> dict[str, A
         "contact_labels": analysis.get("contact_labels"),
         "near_miss_hydrogen_bonds": analysis.get("near_miss_hydrogen_bonds") or [],
         "atom_pair_counts": analysis.get("atom_pair_counts"),
+        "atom_pairs_truncated": analysis.get("atom_pairs_truncated", False),
+        "atom_pairs_truncated_note": analysis.get("atom_pairs_truncated_note"),
         "interacting_residues": analysis.get("interacting_residues", []),
         "binding_site_residues": analysis.get("binding_site_residues", []),
         "method": analysis.get("method"),
@@ -160,11 +162,13 @@ def fetch_complex_interactions(complex_id: str, manifest_path: Path) -> dict[str
         "contact_labels": structure.get("contact_labels") or {},
         "near_miss_hydrogen_bonds": structure.get("near_miss_hydrogen_bonds") or [],
         "atom_pair_counts": structure.get("atom_pair_counts") or {},
+        "atom_pairs_truncated": structure.get("atom_pairs_truncated", False),
+        "atom_pairs_truncated_note": structure.get("atom_pairs_truncated_note"),
         "interacting_residues": residues,
         "binding_site_residues": structure.get("binding_site_residues", []),
         "method": structure.get("method"),
         "status": "computed",
-        "note": None,
+        "note": structure.get("note"),
     }
 
 

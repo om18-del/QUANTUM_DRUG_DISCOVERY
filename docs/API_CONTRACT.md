@@ -236,6 +236,13 @@ Example response:
 
 - Searches PubChem.
 - Cached with a finite TTL.
+- The deposited 3D conformer is requested first (PubChem's `?record_type=3d`). When PubChem
+  has no 3D record for the CID (HTTP 404) or answers with a flat 2D record, the default record
+  is fetched instead; the request never fails just because no 3D conformer exists.
+- `sdf_dimension` reports what was actually returned: `"3D"` or `"2D"`. It is detected from
+  the SDF itself (the `3D`/`2D` marker in the molfile header, confirmed against the z spread of
+  the atom block), never assumed. A record whose header says 3D but whose coordinates are flat
+  is reported as `"2D"`, so a flat record is never presented as a 3D structure.
 
 Example request:
 ```http
@@ -251,6 +258,9 @@ Example response:
   "smiles": "CC(=O)Oc1ccccc1C(=O)O",
   "molecular_weight": 180.16,
   "formula": "C9H8O4",
+  "sdf_dimension": "3D",
+  "sdf_loaded": true,
+  "note": "3D conformer from PubChem",
   "status": "computed"
 }
 ```
@@ -446,6 +456,11 @@ to miss the catalytic residues, and the mechanism reports that rather than calli
   as a near miss rather than silently dropped.
 - Each mechanism step is tagged `computed` or `literature`. The two are never conflated, and
   no docking score or binding free energy is claimed.
+- Each residue's `atom_pairs` list is capped at 12 entries for response size. Every residue
+  carries `atom_pairs_truncated` (`true` when pairs were dropped), and the top level carries
+  `atom_pairs_truncated` plus `atom_pairs_truncated_note`. `atom_pair_counts` is **never**
+  truncated and always holds the complete tally, so a capped list is never mistaken for the
+  full set of contacts.
 
 Example request:
 ```http
@@ -479,6 +494,8 @@ Example response (truncated):
     "hydrophobic": "measured geometry",
     "close_contact": "measured geometry"
   },
+  "atom_pairs_truncated": false,
+  "atom_pairs_truncated_note": "Per-residue atom_pairs are capped at 12 per residue for response size; atom_pair_counts is the complete tally and is not truncated.",
   "near_miss_hydrogen_bonds": [
     {
       "protein_residue": "ASP B29",
@@ -514,6 +531,9 @@ Example placeholder response when a curated entry has no deposited coordinates a
 - Each of `hydrogen_bonds`, `hydrophobic_contacts`, `salt_bridges` and `close_contacts` holds
   **unique residues**, not atom pairs; each residue carries its own `atom_pairs`. The counts
   therefore match `contact_summary` in `GET /api/complexes/{id}/structure`.
+- Each residue's `atom_pairs` is capped at 12 (see `GET /api/complexes/{id}/structure`). The
+  per-residue `atom_pairs_truncated` flag plus the top-level `atom_pairs_truncated` and
+  `atom_pairs_truncated_note` state whether the cap applied; `atom_pair_counts` is complete.
 - A residue that makes more than one kind of contact appears in more than one list, so the
   lists must not be summed as if they were disjoint.
 - `contact_labels` marks `hydrogen_bond` and `salt_bridge` as `"geometric heuristic"` and
@@ -629,8 +649,12 @@ Example response (this is the only shape it returns):
 
 #### GET /api/jobs/{id}
 
-- Returns state: `queued | running | done | failed`.
+- Returns state: `queued | running | done | failed` (SPEC section 5).
 - Long-running work uses BackgroundTasks and the SQLite job store.
+- **No HTTP route starts a job.** Creating a job is internal-only (`enqueue_job` in
+  `app/services/jobs_service.py`); this build exposes job *status* only. A state outside the
+  documented enum is rejected by the internal enqueue path rather than stored, so an unknown
+  state can never appear in this response.
 
 Example request:
 ```http

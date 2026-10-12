@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import quote
 
 from pydantic import BaseModel, Field, field_validator
@@ -14,6 +15,56 @@ from app.services.external_api import NotFoundError, http_get_bytes_cached, http
 logger = logging.getLogger(__name__)
 
 PUBCHEM_BASE = "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+
+# The molfile dimension code is the two trailing characters of the program line
+# (line index 1), for example "  -OEChem-10122600532D". PubChem and other writers
+# put it there, so we look there first and fall back to the rest of the header.
+_SDF_DIMENSION_RE = re.compile(r"(3D|2D)\s*$")
+# MDL V2000 atom line: x is columns 1-10, y 11-20 and z 21-30 (0-indexed 20:30).
+_SDF_Z_COLUMNS = slice(20, 30)
+_SDF_Z_SPAN_MIN = 1e-4  # Å; below this, the z spread is effectively zero (flat record).
+
+
+def _sdf_header_dimension(text: str) -> str | None:
+    """The ``2D``/``3D`` marker from the molfile header, or ``None`` when absent."""
+    lines = text.splitlines()
+    for idx in (1, 0, 2, 3, 4, 5):
+        if idx >= len(lines):
+            continue
+        match = _SDF_DIMENSION_RE.search(lines[idx].rstrip())
+        if match:
+            return match.group(1).upper()
+    return None
+
+
+def _sdf_atom_count(text: str) -> int:
+    """Number of atom lines in the first SDF block."""
+    lines = text.splitlines()
+    if len(lines) < 5:
+        return 0
+    try:
+        return max(0, int(lines[3].strip()[:3]))
+    except Exception:
+        return 0
+
+
+def _sdf_z_extent(text: str, n_atoms: int) -> tuple[float | None, float | None]:
+    """Min/max z coordinate over the first SDF block's atom lines."""
+    if n_atoms <= 0:
+        return None, None
+    lines = text.splitlines()
+    zs: list[float] = []
+    for i in range(n_atoms):
+        line = lines[4 + i] if 4 + i < len(lines) else ""
+        try:
+            z = float(line[_SDF_Z_COLUMNS].strip() or "0")
+        except Exception:
+            z = 0.0
+        zs.append(z)
+    if not zs:
+        return None, None
+    return min(zs), max(zs)
+
 
 
 class CompoundNotFound(Exception):
@@ -66,9 +117,95 @@ def pubchem_properties(cid: int) -> dict[str, Any]:
     return dict(props_list[0])
 
 
-def pubchem_sdf_bytes(cid: int) -> bytes:
-    url = f"{PUBCHEM_BASE}/compound/cid/{cid}/SDF"
-    return http_get_bytes_cached(url, source="pubchem", backoff_seconds=2.0)
+def _detect_sdf_dimension(sdf_bytes: bytes) -> Literal["3D", "2D"]:
+    """Detect 3D vs 2D from the SDF record itself (header marker + real z spread).
+
+    PubChem's SDF header line carries a ``3D``/``2D`` marker, and we confirm it
+    against the actual coordinate spread: a header that says ``2D``, or a ``3D``
+    header whose atom block has an effectively zero z span, is reported as 2D so a
+    flat record is never drawn as a 3D structure. Both signals must agree on 3D.
+    """
+    if not sdf_bytes:
+        return "2D"
+    try:
+        text = sdf_bytes.decode("utf-8", errors="replace")
+    except Exception:
+        return "2D"
+
+    marker = _sdf_header_dimension(text)
+    n_atoms = _sdf_atom_count(text)
+    min_z, max_z = _sdf_z_extent(text, n_atoms)
+    z_spread = (max_z - min_z) if (min_z is not None and max_z is not None) else 0.0
+
+    if marker == "3D" and z_spread > _SDF_Z_SPAN_MIN:
+        return "3D"
+    return "2D"
+
+
+def fetch_pubchem_sdf(cid: int) -> dict[str, Any]:
+    """Fetch PubChem SDF for *cid*, preferring a real 3D conformer.
+
+    PubChem's default ``/compound/cid/{cid}/SDF`` endpoint frequently returns a flat
+    2D record (all z == 0). The ``?record_type=3d`` variant returns a real 3D
+    conformer when one is deposited. We request the 3D record first and fall back to
+    the default record when PubChem has no 3D record for that CID.
+
+    Returns a dict with ``sdf_bytes``, ``sdf_dimension`` ("3D"/"2D"), and
+    ``note`` describing what was actually returned.
+    """
+    sdf_3d_url = f"{PUBCHEM_BASE}/compound/cid/{cid}/SDF?record_type=3d"
+    sdf_default_url = f"{PUBCHEM_BASE}/compound/cid/{cid}/SDF"
+
+    # 1) Ask PubChem for the deposited 3D conformer first.
+    candidate: bytes | None = None
+    try:
+        candidate = http_get_bytes_cached(sdf_3d_url, source="pubchem", backoff_seconds=2.0)
+    except NotFoundError:
+        # 404/410: PubChem has no 3D record for this CID. That is an answer, so
+        # fall back to the default record rather than treating it as a failure.
+        logger.info("PubChem has no 3D record for CID %d (HTTP 404); using the default record", cid)
+    except Exception as exc:
+        logger.warning("PubChem 3D SDF request failed for CID %d: %s", cid, exc)
+
+    used_3d_request = False
+    sdf_bytes: bytes | None = None
+    if candidate:
+        # 2) Only keep it when the record itself is 3D. A record whose header says
+        #    2D (or whose atom block is flat) is not a 3D conformer.
+        if _detect_sdf_dimension(candidate) == "3D":
+            sdf_bytes = candidate
+            used_3d_request = True
+        else:
+            logger.info(
+                "PubChem 3D request for CID %d returned a 2D record; using the default record",
+                cid,
+            )
+
+    # 3) Fall back to the default record when the 3D one is missing or flat.
+    if sdf_bytes is None:
+        try:
+            sdf_bytes = http_get_bytes_cached(
+                sdf_default_url, source="pubchem", backoff_seconds=2.0
+            )
+        except Exception as exc:
+            raise RuntimeError(f"PubChem SDF unavailable for CID {cid}") from exc
+
+    if not sdf_bytes:
+        raise RuntimeError(f"PubChem SDF returned an empty body for CID {cid}")
+
+    sdf_dimension = _detect_sdf_dimension(sdf_bytes)
+    if sdf_dimension == "3D":
+        note = "3D conformer from PubChem"
+    elif used_3d_request:
+        note = "PubChem 3D endpoint returned a flat record; treated as 2D"
+    else:
+        note = "PubChem returned a 2D record; no 3D conformer available"
+
+    return {
+        "sdf_bytes": sdf_bytes,
+        "sdf_dimension": sdf_dimension,
+        "note": note,
+    }
 
 
 class MoleculeSearchResult(BaseModel):
@@ -80,6 +217,7 @@ class MoleculeSearchResult(BaseModel):
     molecular_formula: str | None = None
     iupac_name: str | None = None
     sdf_bytes: bytes | None = None
+    sdf_dimension: Literal["3D", "2D"] | None = None
     sdf_loaded: bool = False
     source: str = "pubchem"
     status: str = "computed"
@@ -150,13 +288,23 @@ def search_molecule(query: str, timeout_seconds: float) -> dict[str, Any]:
     molecular_formula = props.get("MolecularFormula")
     iupac_name = props.get("IUPACName")
 
-    sdf_bytes: bytes | None = None
-    sdf_loaded = False
+    sdf_result: dict[str, Any] | None = None
+    sdf_error: Exception | None = None
     try:
-        sdf_bytes = pubchem_sdf_bytes(cid)
-        sdf_loaded = len(sdf_bytes) > 0
+        sdf_result = fetch_pubchem_sdf(cid)
     except Exception as exc:
         logger.warning("PubChem SDF fetch failed for cid %d: %s", cid, exc)
+        sdf_error = exc
+
+    sdf_bytes = None
+    sdf_dimension = "2D"
+    sdf_note: str | None = None
+    sdf_loaded = False
+    if sdf_result is not None:
+        sdf_bytes = sdf_result.get("sdf_bytes") or None
+        sdf_dimension = str(sdf_result.get("sdf_dimension") or "2D")
+        sdf_note = sdf_result.get("note") or None
+        sdf_loaded = bool(sdf_bytes and len(sdf_bytes) > 0)
 
     return MoleculeSearchResult(
         query=q,
@@ -167,10 +315,11 @@ def search_molecule(query: str, timeout_seconds: float) -> dict[str, Any]:
         molecular_formula=molecular_formula,
         iupac_name=iupac_name,
         sdf_bytes=sdf_bytes,
+        sdf_dimension=sdf_dimension,
         sdf_loaded=sdf_loaded,
         source="pubchem",
         status="computed",
-        note=None,
+        note=sdf_note,
     ).model_dump()
 
 

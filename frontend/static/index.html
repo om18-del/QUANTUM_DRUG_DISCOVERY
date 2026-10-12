@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Quantum Drug Discovery Explorer</title>
-  <script src="https://3dmol.csb.pitt.edu/build/3Dmol-min.js"></script>
+  <!-- 3Dmol 2.5.5 (BSD-3-Clause), vendored from the pinned npm tarball
+       registry.npmjs.org/3dmol/-/3dmol-2.5.5.tgz so the viewer no longer depends
+       on a third-party CDN being reachable. License: vendor/3Dmol-LICENSE-2.5.5.txt. -->
+  <script src="/app/vendor/3Dmol-min-2.5.5.js"></script>
   <style>
     .status-badge.status-err,
     .status-line .err,
@@ -303,6 +306,6 @@
     <span id="foot-meta"></span>
   </footer>
 
-  <script type="module" src="/app/app.js?v=10"></script>
+  <script type="module" src="/app/app.js?v=11"></script>
 </body>
 </html>

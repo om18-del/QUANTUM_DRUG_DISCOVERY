@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import importlib
+import logging
 import math
 from typing import Any
 
 from app.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 BOLTZMANN_R_KCAL = 0.0019872041  # kcal / (mol * K)
 BODY_TEMPERATURE_K = 298.15
@@ -24,7 +27,15 @@ _CAPABILITY_CACHE: dict[str, Any] | None = None
 
 
 def rdkit_compat(reload: bool = False) -> dict[str, Any]:
-    """Import only the RDKit pieces this OS policy allows, degrading per-module."""
+    """Import only the RDKit pieces this OS policy allows, degrading per-module.
+
+    On the first successful import the result is cached for the rest of the process
+    (the import is expensive and stable). A failure is deliberately NOT cached: a
+    transient problem — a module not yet on ``sys.path``, or a slow first import —
+    can succeed on the next request, so every call retries the import while RDKit is
+    unavailable. The exception type and message are logged and carried in the
+    returned ``note`` so callers can report *why* it is unavailable.
+    """
     global _CAPABILITY_CACHE
     if _CAPABILITY_CACHE is not None and not reload:
         return _CAPABILITY_CACHE
@@ -33,16 +44,31 @@ def rdkit_compat(reload: bool = False) -> dict[str, Any]:
         from rdkit import Chem
 
         mods["Chem"] = Chem
-    except Exception:
-        _CAPABILITY_CACHE = mods
-        return mods
+    except Exception as exc:
+        detail = f"{type(exc).__name__}: {exc}"
+        logger.warning("RDKit import failed (%s); not caching this failure", detail)
+        return {**mods, "note": detail}
     for name, path in _SUBMODULES.items():
         try:
             mods[name] = importlib.import_module(path)
-        except Exception:
+        except Exception as exc:
+            logger.warning("RDKit submodule %s import failed (%s: %s)", name, type(exc).__name__, exc)
             mods[name] = None
     _CAPABILITY_CACHE = mods
     return mods
+
+
+def rdkit_unavailable_reason(mods: dict[str, Any] | None = None) -> str:
+    """One sentence explaining why RDKit is unavailable, including the import error.
+
+    The exception type and message captured by :func:`rdkit_compat` are folded in,
+    so an "unavailable" reason never hides the actual cause.
+    """
+    caps = mods if mods is not None else rdkit_compat()
+    detail = caps.get("note")
+    if detail:
+        return f"RDKit is not importable in this environment ({detail})"
+    return "RDKit is not importable in this environment"
 
 
 def rdkit_capabilities() -> dict[str, bool]:
@@ -92,7 +118,7 @@ def rdkit_properties_from_smiles(smiles: str) -> dict[str, Any]:
     Chem = mods.get("Chem")
     rd_mol_descriptors = mods.get("rdMolDescriptors")
     if Chem is None or rd_mol_descriptors is None:
-        raise RuntimeError("RDKit not available in this build")
+        raise RuntimeError(rdkit_unavailable_reason(mods))
 
     # rdFreeSASA (and rdPartialCharges, which backs Crippen logP) can be blocked
     # by OS application-control policy. Neither is required for the core
@@ -429,7 +455,7 @@ def smiles_to_3d_structure(
             "available": False,
             "is_3d": False,
             "molblock": None,
-            "note": "RDKit is not importable in this environment",
+            "note": rdkit_unavailable_reason(mods),
         }
 
     ensemble = smiles_to_conformer_ensemble(smiles, num_conformers=num_conformers, max_iters=max_iters)
@@ -473,7 +499,8 @@ def smiles_to_2d_structure(smiles: str) -> dict[str, Any]:
     rd_depictor = mods.get("rdDepictor")
     rdmolfiles = mods.get("rdmolfiles")
     if Chem is None or rd_depictor is None or rdmolfiles is None:
-        return {"available": False, "molblock": None, "note": "2D depiction is unavailable"}
+        note = rdkit_unavailable_reason(mods) if Chem is None else "2D depiction is unavailable"
+        return {"available": False, "molblock": None, "note": note}
 
     mol = _prepare_mol(Chem, smiles)
     try:

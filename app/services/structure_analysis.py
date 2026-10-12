@@ -467,6 +467,10 @@ def _classify_contact(
     return None
 
 
+# Response-size cap on the per-residue atom_pairs list. atom_pair_counts keeps the
+# full tally, so a truncated list is always flagged by atom_pairs_truncated.
+ATOM_PAIRS_PER_RESIDUE_CAP = 12
+
 # Ranked so a residue's headline interaction is its most specific one.
 _CONTACT_RANK = {name: rank for rank, name in enumerate(CONTACT_TYPES)}
 
@@ -569,6 +573,7 @@ def analyse_complex(
                     "contact_count": 1,
                     "min_distance_angstrom": round(dist, 2),
                     "atom_pairs": [pair],
+                    "atom_pairs_truncated": False,
                 }
             else:
                 entry["contact_count"] += 1
@@ -577,8 +582,10 @@ def analyse_complex(
                 entry["min_distance_angstrom"] = min(
                     entry["min_distance_angstrom"], round(dist, 2)
                 )
-                if len(entry["atom_pairs"]) < 12:
+                if len(entry["atom_pairs"]) < ATOM_PAIRS_PER_RESIDUE_CAP:
                     entry["atom_pairs"].append(pair)
+                else:
+                    entry["atom_pairs_truncated"] = True
 
     ordered = sorted(
         residues.values(),
@@ -594,6 +601,14 @@ def analyse_complex(
         near_misses.values(),
         key=lambda m: (m["distance_angstrom"], m["protein_residue"], m["ligand_atom"]),
     )[:NEAR_MISS_LIMIT]
+
+    # The per-residue atom_pairs list is capped for response size. Say so, so a
+    # truncated list is never mistaken for the complete set of contacts.
+    atom_pairs_truncated = any(r.get("atom_pairs_truncated") for r in ordered)
+    atom_pairs_truncated_note = (
+        f"Per-residue atom_pairs are capped at {ATOM_PAIRS_PER_RESIDUE_CAP} per residue "
+        "for response size; atom_pair_counts is the complete tally and is not truncated."
+    )
 
     return {
         "status": "computed",
@@ -614,13 +629,17 @@ def analyse_complex(
         "contact_summary": contact_summary,
         "contact_summary_basis": "unique_residues",
         "atom_pair_counts": counts,
+        "atom_pairs_truncated": atom_pairs_truncated,
+        "atom_pairs_truncated_note": atom_pairs_truncated_note,
         "ligand_code": ligand_atoms[0].res_name,
         "ligand_atom_count": len(ligand_atoms),
         "protein_atom_count": len(protein_atoms),
         "binding_site_residue_count": len(ordered),
         "interacting_residues": ordered,
         "binding_site_residues": binding_site,
-        "note": None,
+        # State the cap when it actually affected the payload; otherwise leave the
+        # note free for status commentary.
+        "note": atom_pairs_truncated_note if atom_pairs_truncated else None,
     }
 
 

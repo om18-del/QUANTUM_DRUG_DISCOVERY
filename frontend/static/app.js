@@ -808,12 +808,16 @@ async function runSearch() {
         <dt>MW</dt><dd>${body.molecular_weight ?? "—"}</dd>
         <dt>formula</dt><dd>${escapeHtml(body.molecular_formula || "—")}</dd>
         <dt>IUPAC</dt><dd>${escapeHtml(body.iupac_name || "—")}</dd>
-        <dt>3D SDF</dt><dd>${body.sdf_loaded && body.sdf_bytes && body.sdf_bytes.length ? "loaded (" + body.sdf_bytes.length + " bytes)" : "not loaded"}</dd>
+        <dt>3D SDF</dt><dd>${body.sdf_bytes && body.sdf_bytes.length ? `loaded (${body.sdf_dimension || "2D"}, ${body.sdf_bytes.length} bytes)` : "not loaded"}</dd>
       </dl>
       ${jsonBlock(body)}
       ${body.status === "computed" && smiles ? `<div class="row" style="margin-top:8px">
         <button id="use-smiles-btn" class="btn" type="button">Simulate this SMILES</button>
-        ${body.sdf_bytes && body.sdf_bytes.length ? `<button id="view-3d-btn" class="btn btn-primary" type="button">Load crystal-style 3D</button>` : ""}
+        ${body.sdf_bytes && body.sdf_bytes.length && body.sdf_dimension === "3D"
+          ? `<button id="view-3d-btn" class="btn btn-primary" type="button">Load PubChem 3D conformer</button>`
+          : (body.sdf_bytes && body.sdf_bytes.length
+            ? `<span class="muted">PubChem returned a ${escapeHtml(body.sdf_dimension || "2D")} record — no 3D conformer to load.</span>`
+            : "")}
       </div>` : ""}
     `);
     const useBtn = $("#use-smiles-btn");
@@ -976,7 +980,10 @@ async function runMoleculeSimulation() {
     const ens = body.ensemble || {};
     const detail = [
       { k: "heavy atoms", v: p.heavy_atom_count },
-      { k: "conformers found", v: ens.conformer_count },
+      /* The 2D fallback ensemble carries no conformer_count at all, and
+         String(undefined) would print the literal word "undefined". Say the
+         count when there is one; otherwise name the situation instead. */
+      { k: "conformers found", v: ens.conformer_count == null ? (st.is_3d ? "\u2014" : "not applicable (2D fallback)") : ens.conformer_count },
       { k: "energy span", v: ens.energy_span_kcal_per_mol == null ? "—" : num(ens.energy_span_kcal_per_mol, 2), sub: "kcal/mol (relative)" },
       { k: "MW", v: num(p.molecular_weight, 2) },
       { k: "logP", v: p.logp == null ? "—" : num(p.logp, 2) },
@@ -994,7 +1001,7 @@ async function runMoleculeSimulation() {
         ${detail.map((d) => `
           <div class="metric">
             <div class="k">${escapeHtml(d.k)}</div>
-            <div class="v">${escapeHtml(String(d.v))}</div>
+            <div class="v">${escapeHtml(d.v == null ? "\u2014" : String(d.v))}</div>
             ${d.sub ? `<div class="sub">${escapeHtml(d.sub)}</div>` : ""}
           </div>
         `).join("")}
@@ -1023,23 +1030,36 @@ async function runMoleculeSimulation() {
 
 /** How far the loaded coordinates actually reach in z, in ångström. */
 function zSpan(viewer) {
-  let span = 0;
-  allAtoms(viewer).forEach((a) => { if (Math.abs(a.z) > span) span = Math.abs(a.z); });
-  return span;
+  let min_z = 0;
+  let max_z = 0;
+  let any = false;
+  allAtoms(viewer).forEach((a) => {
+    if (!isFinite(a.z)) return;
+    any = true;
+    if (a.z < min_z) min_z = a.z;
+    if (a.z > max_z) max_z = a.z;
+  });
+  if (!any) return 0;
+  return max_z - min_z;
 }
 
 /** Depth check on a molfile's own coordinates, so a flat record is never drawn as 3D. */
-function molblockHasDepth(molblock) {
+function molblockHasDepth(molblock, threshold = 0.25) {
   const lines = String(molblock || "").split(/\r?\n/);
   if (lines.length < 5) return false;
   const n = parseInt(String(lines[3]).slice(0, 3), 10);
   if (!isFinite(n) || n <= 0) return false;
-  let span = 0;
+  const zs = [];
   for (let i = 0; i < n && 4 + i < lines.length; i++) {
     const z = parseFloat(String(lines[4 + i]).slice(20, 30));
-    if (isFinite(z) && Math.abs(z) > span) span = Math.abs(z);
+    if (isFinite(z)) zs.push(z);
   }
-  return span > 0.25;
+  if (!zs.length) return false;
+  const min_z = Math.min(...zs);
+  const max_z = Math.max(...zs);
+  // Use z span (max z - min z), not max |z|, so a flat record whose z values
+  // are numerically non-zero but identical is still reported as flat.
+  return (max_z - min_z) > threshold;
 }
 
 /**
@@ -1280,24 +1300,29 @@ function loadMol3D(body) {
     molView.spinning = false;
   }
   try {
-    // The record is drawn as3D only if its own coordinates have depth;
+    // The record is drawn as 3D only if its own coordinates have depth;
     // a flat PubChem record is drawn as the flat thing it is.
     const text = toText(body.sdf_bytes);
-    const is3d = molblockHasDepth(text);
+    const is3d = body.sdf_dimension === '3D' && molblockHasDepth(text);
+    const title = is3d ? "PubChem 3D conformer (real)" : "PubChem 3D conformer (flat)";
     molView.methodCode = null;
     molView.methodDetail = null;
     molView.ensemble = null;
+
     if (!drawMolecule(text, "sdf", is3d)) {
-      setStatus($("#viewer-status"), "err", "viewer unavailable");
+      setStatus($("#viewer-status"), "err", "3Dmol failed to draw the loaded record");
+      $("#viewer-hint").textContent = title;
+      $("#mol-reset").disabled = false;
       return;
     }
+
     setMethodBadge(null, null, molView.viewer);
     setConformers(null);
     const controls = $("#mol-controls");
     if (controls) controls.hidden = false;
     setStatus($("#viewer-status"), "ok", is3d ? "3D record loaded" : "record loaded (flat)");
     $("#viewer-hint").textContent = is3d
-      ? "PubChem 3D record · rotate/zoom with mouse"
+      ? "PubChem 3D conformer loaded · rotate/zoom with mouse"
       : "PubChem returned a flat record — nothing here is 3D";
     $("#mol-reset").disabled = false;
   } catch (e) {
@@ -1578,6 +1603,12 @@ async function loadComplexDetail(id) {
     const rulesHtml = contactRulesHtml(body.contact_rules, body.contact_labels);
     const methodHtml = body.method ? `<p>${escapeHtml(body.method)}</p>` : "";
 
+    // The API caps each residue's atom_pairs list; say so rather than showing the
+    // capped list next to complete counts as if it were the whole set.
+    const truncNote = body.atom_pairs_truncated
+      ? `<p class="method-note">Per-residue atom pairs are capped at 12 (atom_pairs_truncated is set). The contact counts above are the complete tally.</p>`
+      : "";
+
     setStatus(status, "ok", `contacts measured for ${body.protein_pdb}`);
     el.innerHTML = `
       <div class="computed-note">complex: ${escapeHtml(body.display_name || id)}</div>
@@ -1604,6 +1635,7 @@ async function loadComplexDetail(id) {
       ${catalyticHtml(mech.catalytic_residues)}
       ${stepsHtml(mech.steps, "mech")}
       ${contactTableHtml(body.interacting_residues, "complex")}
+      ${truncNote}
       ${jsonBlock(body)}
     `;
 

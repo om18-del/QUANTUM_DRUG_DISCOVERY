@@ -25,6 +25,21 @@ and what paper or resource backs it. It is meant to stay current as the project 
 - **Scientific reference point**
   - H2 in STO-3G near 0.74 angstrom is about -1.137 Ha. This is used as a sanity check for the exact solver and VQE loop.
 
+## Frontend vendor libraries
+
+- **3Dmol.js 2.5.5**
+  - Use: the 3D structure viewers (Drug-Target Studio and protein panel).
+  - License: BSD-3-Clause. The license file ships next to the code as
+    `frontend/static/vendor/3Dmol-LICENSE-2.5.5.txt`.
+  - Version: 2.5.5, the newest upstream release at the time of vendoring
+    (published 2026-05-22; releases page: https://github.com/3dmol/3Dmol.js/releases/tag/2.5.5).
+  - Source: the pinned npm tarball `https://registry.npmjs.org/3dmol/-/3dmol-2.5.5.tgz`,
+    file `package/build/3Dmol-min.js`, copied unmodified to
+    `frontend/static/vendor/3Dmol-min-2.5.5.js` (537,792 bytes).
+  - Why vendored: the viewer previously loaded the library from the third-party CDN at
+    3dmol.csb.pitt.edu, so a CDN hiccup showed "3Dmol.js did not load" until a hard
+    refresh. The app now serves the pinned file itself.
+
 ## Molecules and properties
 
 - **RDKit**

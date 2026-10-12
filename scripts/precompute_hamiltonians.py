@@ -152,9 +152,14 @@ def build_point(bond_length: float) -> dict[str, Any]:
     from pyscf import gto, scf
     from qiskit.quantum_info import SparsePauliOp
     from qiskit_nature.second_q.drivers import PySCFDriver
+    from qiskit_nature.units import DistanceUnit
     from qiskit_nature.second_q.mappers import ParityMapper
 
-    # PySCF is used directly for the HF and FCI reference energies.
+    # PySCF is used directly for the HF and FCI reference energies. Its ``gto.M``
+    # accepts the plain ``"Angstrom"`` string; the qiskit-nature driver below needs
+    # the DistanceUnit enum instead, because 0.8.0 stores the unit as a
+    # DistanceUnit and reads ``self._unit.value`` (raising an AttributeError when it
+    # is given a bare string).
     mol = gto.M(
         atom=f"H 0.0 0.0 0.0; H 0.0 0.0 {bond_length}",
         basis=BASIS,
@@ -175,7 +180,7 @@ def build_point(bond_length: float) -> dict[str, Any]:
     driver = PySCFDriver(
         atom=f"H 0.0 0.0 0.0; H 0.0 0.0 {bond_length}",
         basis=BASIS,
-        unit="Angstrom",
+        unit=DistanceUnit.ANGSTROM,
     )
     problem = driver.run()
     nuclear_repulsion = float(problem.nuclear_repulsion_energy)
