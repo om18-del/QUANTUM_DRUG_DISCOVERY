@@ -27,7 +27,14 @@ Build to [SPEC.md](SPEC.md).
 Health check:
 - `GET /health`
 
-## Generating the H2 Hamiltonian artifact
+## Deployment
+
+One container runs the API and the frontend together. The `Dockerfile` and `.dockerignore` in
+the repository root build it, and [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) explains why a
+container (Render or a Hugging Face Space) is the supported shape and why a serverless platform
+such as Vercel is not. PySCF is not in the image: the Hamiltonians are offline artifacts.
+
+## Generating the Hamiltonian artifacts
 
 The Quantum Lab's H2 energy curve and its single-point simulation are both built from one
 offline artifact, `app/data/hamiltonians/h2_sto3g.json`, which **is** committed (58 points,
@@ -48,7 +55,16 @@ PySCF publishes no Windows wheel, so regenerating the artifact has to happen whe
 2. Install the pinned set the notebook lists (`pyscf`, `qiskit-nature` and their pins).
 3. Run the notebook end to end. It writes `h2_sto3g.json`.
 4. Save that file into `app/data/hamiltonians/` in this repository (overwriting the committed
-   one) and run `python scripts/validate_hamiltonian_file.py` on it.
+   one) and run `python scripts/validate_hamiltonian_file.py h2` on it.
+
+LiH uses the same script with a different molecule key:
+`python scripts/precompute_hamiltonians.py --molecule lih` writes
+`lih_sto3g_active.json` (1.0–3.0 Å in 0.1 steps plus 1.595 Å), freezing the Li 1s core and
+removing the two highest virtual spatial orbitals. **It is not in this repository and no LiH
+numbers exist anywhere in this build.** Once you generate it and save it as
+`app/data/hamiltonians/lih_sto3g_active.json`, `GET /api/quantum/molecules` reports it as
+available and `GET /api/quantum/h2-curve?molecule=lih` serves its stored curve plus an exact
+diagonalisation reference. VQE still runs for H2 only.
 5. Restart the server and open the Quantum Lab tab — “Refresh curve” will redraw the curve.
 
 The viewer panels load `3Dmol-min.js` from `https://3dmol.csb.pitt.edu`, so the 3D viewers need

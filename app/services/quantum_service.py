@@ -40,6 +40,10 @@ import numpy as np
 from app.config import get_settings
 
 H2_HAMILTONIAN_ARTIFACT = "h2_sto3g.json"
+# The molecule key the curve and simulate endpoints default to. ``app.core.exact``
+# holds the registry that maps a key to its artifact file; this module reads the
+# file and never hard-codes more than the default key.
+DEFAULT_MOLECULE = "h2"
 
 # The curve, the single-point simulation and the resource estimate are three
 # different things, so each one names its own subject: the curve and the energy
@@ -119,15 +123,33 @@ class VariationalPrincipleViolation(RuntimeError):
     """A run reported an energy below the exact ground energy.
 
     The variational principle forbids that beyond floating-point rounding, so the
-    router refuses the result (500, ``variational_principle_violation``) instead
-    of reporting it. Raised by ``compute_h2_simulate`` after its guard check.
+    router refuses the result (500, ``variational_principle_violation``)    instead of reporting it. Raised by ``compute_h2_simulate`` after its guard check.
     """
 
 
-def _unavailable_note(subject: str) -> str:
-    """Why nothing can be served yet, phrased for this endpoint's own subject."""
+class QuantumRequestError(RuntimeError):
+    """A request with its own error code and HTTP status (404/422), not a fault.
+
+    The router turns this into the standard error envelope with ``code`` and
+    ``status_code`` instead of the generic 500. An unknown molecule key is a 404
+    and a too-wide Hamiltonian or an unsupported VQE request is a 422.
+    """
+
+    def __init__(self, code: str, message: str, status_code: int) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+        self.status_code = status_code
+
+
+def _unavailable_note(subject: str, filename: str, label: str = "H2") -> str:
+    """Why nothing can be served yet, phrased for this endpoint's own subject.
+
+    ``filename`` and ``label`` default to the H2 pair so every existing H2 message
+    is byte-identical; another molecule names its own artifact and label.
+    """
     return (
-        f"{H2_HAMILTONIAN_ARTIFACT} has not been generated, so no H2 {subject} is available. "
+        f"{filename} has not been generated, so no {label} {subject} is available. "
         "Run scripts/precompute_hamiltonians.ipynb in Colab or WSL and save the result into "
         f"app/data/hamiltonians/. This endpoint reports the {subject} as unavailable rather than "
         "showing placeholder numbers."
@@ -152,15 +174,26 @@ def _unwired_note(subject: str) -> str:
 
 
 def h2_artifact_path() -> Path:
-    """Location of the offline H2 Hamiltonian artifact."""
+    """Location of the offline H2 Hamiltonian artifact (back-compat alias)."""
     return get_settings().h2_hamiltonian_dir / H2_HAMILTONIAN_ARTIFACT
+
+
+def artifact_path(molecule: str = DEFAULT_MOLECULE) -> Path:
+    """Location of the artifact that backs a molecule key.
+
+    ``app.core.exact`` owns the key-to-file map, so the import is lazy; an unknown
+    key raises ``UnknownMoleculeError`` from there.
+    """
+    from app.core.exact import artifact_filename
+
+    return get_settings().h2_hamiltonian_dir / artifact_filename(molecule)
 
 
 def _artifact_status(subject: str) -> tuple[Path, str | None]:
     """Return the artifact path and the reason it cannot be used, if any."""
     artifact = h2_artifact_path()
     if not artifact.exists():
-        return artifact, _unavailable_note(subject)
+        return artifact, _unavailable_note(subject, H2_HAMILTONIAN_ARTIFACT, "H2")
     return artifact, _unwired_note(subject).format(artifact=artifact.name)
 
 
@@ -192,6 +225,7 @@ def _validated_points(
     artifact: Path,
     payload: dict[str, Any],
     subject: str,
+    molecule: str = DEFAULT_MOLECULE,
 ) -> list[dict[str, float]]:
     """The stored grid, validated field by field instead of trusted.
 
@@ -214,9 +248,14 @@ def _validated_points(
             f"{artifact.name} declares point_count={declared} but holds {len(points)} points"
         )
 
-    molecule = payload.get("molecule")
-    if not isinstance(molecule, str) or molecule.strip().upper() != "H2":
-        raise ValueError(f"{artifact.name} must describe H2, found {molecule!r}")
+    payload_molecule = payload.get("molecule")
+    if (
+        not isinstance(payload_molecule, str)
+        or payload_molecule.strip().upper() != str(molecule).strip().upper()
+    ):
+        raise ValueError(
+            f"{artifact.name} must describe {str(molecule).upper()}, found {payload_molecule!r}"
+        )
 
     units = payload.get("units", "hartree")
     if units != "hartree":
@@ -268,17 +307,20 @@ def _validated_points(
 
 def _load_points(
     subject: str,
+    molecule: str = DEFAULT_MOLECULE,
 ) -> tuple[Path, dict[str, Any], list[dict[str, float]]]:
     """The raw payload and its validated stored grid, or the reason it is absent.
 
     Raises ``FileNotFoundError`` (the router's 503) when the file or its grid is
     absent, ``ValueError`` (the router's 500) when the file is present but wrong.
     """
-    artifact = h2_artifact_path()
+    from app.core.exact import artifact_filename, molecule_label
+
+    artifact = get_settings().h2_hamiltonian_dir / artifact_filename(molecule)
     if not artifact.exists():
-        raise FileNotFoundError(_unavailable_note(subject))
+        raise FileNotFoundError(_unavailable_note(subject, artifact.name, molecule_label(molecule)))
     payload = _read_artifact(artifact)
-    return artifact, payload, _validated_points(artifact, payload, subject)
+    return artifact, payload, _validated_points(artifact, payload, subject, molecule)
 
 
 def _nearest_stored_point(
@@ -304,36 +346,70 @@ def _nearest_stored_point(
     return chosen, on_grid
 
 
-def _curve_metadata(artifact_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+def _curve_metadata(
+    artifact_name: str,
+    payload: dict[str, Any],
+    molecule: str = DEFAULT_MOLECULE,
+) -> dict[str, Any]:
     """The documented provenance block, read from the artifact and checked.
 
-    The contract promises basis STO-3G, parity mapping with two-qubit reduction,
-    2 qubits and the offline source. Rather than hard-coding those claims, each
-    is checked against what the file actually declares; a regenerated artifact
-    that says something else is a fault (500) to review, not a discrepancy to
-    paper over.
+    Every field is read from the file rather than assumed. For H2 the contract
+    additionally pins the exact values (STO-3G, parity with two-qubit reduction,
+    2 qubits, the offline source), so its block is byte-identical to before; for
+    another molecule the block reports what the file declares, including the
+    ``active_space`` description the schema requires.
     """
+    key = str(molecule).strip().lower()
+    basis = payload.get("basis")
+    mapping = payload.get("mapping")
+    reduction = payload.get("two_qubit_reduction")
+    n_qubits = payload.get("n_qubits")
+
     problems: list[str] = []
-    if str(payload.get("basis", "")).lower() != "sto-3g":
-        problems.append(f"basis={payload.get('basis')!r}")
-    if str(payload.get("mapping", "")).lower() != "parity":
-        problems.append(f"mapping={payload.get('mapping')!r}")
-    if payload.get("two_qubit_reduction") is not True:
-        problems.append(f"two_qubit_reduction={payload.get('two_qubit_reduction')!r}")
-    if payload.get("n_qubits") != 2:
-        problems.append(f"n_qubits={payload.get('n_qubits')!r}")
+    if not isinstance(basis, str) or not basis.strip():
+        problems.append(f"basis={basis!r}")
+    if not isinstance(mapping, str) or not mapping.strip():
+        problems.append(f"mapping={mapping!r}")
+    if reduction is not True:
+        problems.append(f"two_qubit_reduction={reduction!r}")
+    if isinstance(n_qubits, bool) or not isinstance(n_qubits, int) or n_qubits < 1:
+        problems.append(f"n_qubits={n_qubits!r}")
     if problems:
         raise ValueError(
-            f"{artifact_name} does not hold the documented metadata (expected STO-3G, "
-            f"parity mapping with two-qubit reduction, n_qubits=2): {', '.join(problems)}"
+            f"{artifact_name} does not hold the documented metadata (a basis, a mapping, "
+            f"two-qubit reduction and a positive integer n_qubits): {', '.join(problems)}"
         )
 
+    if key == "h2":
+        if str(basis).lower() != "sto-3g" or str(mapping).lower() != "parity" or int(n_qubits) != 2:
+            raise ValueError(
+                f"{artifact_name} does not hold the documented H2 metadata (expected STO-3G, "
+                f"parity mapping with two-qubit reduction, n_qubits=2): basis={basis!r}, "
+                f"mapping={mapping!r}, n_qubits={n_qubits!r}"
+            )
+        return {
+            "basis": "STO-3G",
+            "mapping": "parity",
+            "two_qubit_reduction": True,
+            "mapping_note": "parity mapping with two-qubit reduction",
+            "n_qubits": 2,
+            "source": "precomputed offline with PySCF + qiskit-nature",
+        }
+
+    active_space = payload.get("active_space")
+    if not isinstance(active_space, str) or not active_space.strip():
+        raise ValueError(
+            f"{artifact_name} must carry an 'active_space' description for {key!r}; "
+            f"found {active_space!r}"
+        )
     return {
-        "basis": "STO-3G",
-        "mapping": "parity",
+        "basis": str(basis).upper(),
+        "mapping": str(mapping),
         "two_qubit_reduction": True,
-        "mapping_note": "parity mapping with two-qubit reduction",
-        "n_qubits": 2,
+        "mapping_note": f"{mapping} mapping"
+        + (" with two-qubit reduction" if reduction else ""),
+        "n_qubits": int(n_qubits),
+        "active_space": active_space,
         "source": "precomputed offline with PySCF + qiskit-nature",
     }
 
@@ -350,8 +426,8 @@ def compute_h2_curve() -> dict:
     ``nuclear_repulsion_energies_ha`` reports the nuclear part separately, as the
     artifact's ``convention`` field documents.
     """
-    artifact, payload, points = _load_points(CURVE_SUBJECT)
-    metadata = _curve_metadata(artifact.name, payload)
+    artifact, payload, points = _load_points(CURVE_SUBJECT, "h2")
+    metadata = _curve_metadata(artifact.name, payload, "h2")
 
     return {
         "molecule": "H2",
@@ -388,6 +464,113 @@ def compute_h2_curve() -> dict:
             }
             for point in points
         ],
+    }
+
+
+def compute_curve(molecule: str = DEFAULT_MOLECULE) -> dict:
+    """The stored curve for a molecule, or H2's richer response.
+
+    H2 is served exactly as before (it also carries the stored VQE energies). Any
+    other registry molecule is served from artifact data only: HF, FCI and the
+    nuclear repulsion, the qubit count and the active-space text, and an exact
+    ground energy from a NumPy diagonalisation of the stored Pauli terms,
+    cross-checked against the stored FCI. An unknown key is a 404.
+    """
+    from app.core.exact import UnknownMoleculeError, normalize_molecule_key
+
+    try:
+        key = normalize_molecule_key(molecule)
+    except UnknownMoleculeError as exc:
+        raise QuantumRequestError("unknown_molecule", str(exc), 404) from exc
+    if key == "h2":
+        return compute_h2_curve()
+    return _compute_registry_curve(key)
+
+
+def _compute_registry_curve(key: str) -> dict:
+    """Curve for a non-H2 registry molecule: artifact data plus an exact reference."""
+    from app.core.exact import MAX_DENSE_QUBITS, h2_hamiltonian_from_artifact
+
+    artifact, payload, points = _load_points(CURVE_SUBJECT, key)
+    metadata = _curve_metadata(artifact.name, payload, key)
+
+    if metadata["n_qubits"] > MAX_DENSE_QUBITS:
+        raise QuantumRequestError(
+            "too_many_qubits",
+            f"{artifact.name} stores a {metadata['n_qubits']}-qubit Hamiltonian, beyond the "
+            f"{MAX_DENSE_QUBITS}-qubit limit for a dense exact diagonalisation. The exact "
+            "reference is refused rather than approximated.",
+            422,
+        )
+
+    exact_totals: list[float] = []
+    for point in points:
+        hamiltonian = h2_hamiltonian_from_artifact(payload, point["bond_length_angstrom"], key)
+        total = hamiltonian.ground_energy_ha + hamiltonian.nuclear_repulsion_ha
+        if abs(total - point["fci_energy_ha"]) > ARTIFACT_FCI_MATCH_TOLERANCE_HA:
+            raise ValueError(
+                f"diagonalising the stored Pauli terms at {point['bond_length_angstrom']:g} A "
+                f"gives {total:.12f} Ha but {artifact.name} records fci_energy_ha="
+                f"{point['fci_energy_ha']:.12f} Ha; the artifact contradicts itself, so no exact "
+                "reference is reported."
+            )
+        exact_totals.append(total)
+
+    return {
+        "molecule": payload.get("molecule", key.upper()),
+        "basis": metadata["basis"],
+        "n_qubits": metadata["n_qubits"],
+        "active_space": metadata["active_space"],
+        "metadata": metadata,
+        "artifact": artifact.name,
+        "status": "computed",
+        "units": "hartree",
+        "convention": payload.get("convention"),
+        "point_count": len(points),
+        "note": (
+            f"Computed from the {len(points)} stored points in {artifact.name}. HF, FCI and the "
+            "nuclear repulsion are stored PySCF numbers; the exact energies are a NumPy "
+            "diagonalisation of the same stored Pauli terms, cross-checked against the stored FCI "
+            f"to {ARTIFACT_FCI_MATCH_TOLERANCE_HA:g} Ha. No VQE runs for this molecule: only the "
+            "stored curve and the exact reference are served."
+        ),
+        "bond_lengths_angstrom": [point["bond_length_angstrom"] for point in points],
+        "hf_energies_ha": [point["hf_energy_ha"] for point in points],
+        "fci_energies_ha": [point["fci_energy_ha"] for point in points],
+        "nuclear_repulsion_energies_ha": [point["nuclear_repulsion_ha"] for point in points],
+        "exact_energies_ha": exact_totals,
+        # The same rows, point by point, matching the array fields above.
+        "points": [
+            {
+                "bond_length_angstrom": point["bond_length_angstrom"],
+                "hf_energy_ha": point["hf_energy_ha"],
+                "fci_energy_ha": point["fci_energy_ha"],
+                "nuclear_repulsion_ha": point["nuclear_repulsion_ha"],
+                "exact_energy_ha": exact,
+            }
+            for point, exact in zip(points, exact_totals)
+        ],
+    }
+
+
+def list_molecules() -> dict:
+    """Registry entries with whether each molecule's artifact file exists."""
+    from app.core.exact import MOLECULE_REGISTRY
+
+    directory = get_settings().h2_hamiltonian_dir
+    entries = [
+        {
+            "molecule": key,
+            "label": entry["label"],
+            "file": entry["file"],
+            "available": (directory / entry["file"]).is_file(),
+        }
+        for key, entry in MOLECULE_REGISTRY.items()
+    ]
+    return {
+        "molecules": entries,
+        "count": len(entries),
+        "available_count": sum(1 for entry in entries if entry["available"]),
     }
 
 
@@ -603,23 +786,36 @@ def compute_h2_simulate(
     shot-based Aer estimator. ``noise`` is accepted for the contract but no noise
     model is applied, and the response says so.
     """
-    if molecule is not None and molecule.strip().upper() != "H2":
-        return {
-            "molecule": molecule,
-            "bond_length": bond_length,
-            "exact_energy_ha": None,
-            "vqe_energy_ha": None,
-            "error_mha": None,
-            "convergence_history_ha": None,
-            "shots": shots,
-            "noise": noise,
-            "estimator_class_name": None,
-            "status": "placeholder",
-            "note": (
-                "Only H2 is in scope for live VQE in this build; larger molecules need the "
-                "offline artifact and the resource estimator."
-            ),
-        }
+    if molecule is not None:
+        from app.core.exact import MOLECULE_REGISTRY
+
+        key = molecule.strip().lower()
+        if key in MOLECULE_REGISTRY and key != "h2":
+            # A molecule we have a registry entry for but no VQE for: say what is
+            # available rather than inventing an ansatz for it in this task.
+            raise QuantumRequestError(
+                "vqe_not_supported_for_molecule",
+                "Only H2 is simulated with VQE in this build. Only the stored curve and the "
+                f"exact diagonalisation are available for {MOLECULE_REGISTRY[key]['label']}.",
+                422,
+            )
+        if key != "h2":
+            return {
+                "molecule": molecule,
+                "bond_length": bond_length,
+                "exact_energy_ha": None,
+                "vqe_energy_ha": None,
+                "error_mha": None,
+                "convergence_history_ha": None,
+                "shots": shots,
+                "noise": noise,
+                "estimator_class_name": None,
+                "status": "placeholder",
+                "note": (
+                    "Only H2 is in scope for live VQE in this build; larger molecules need the "
+                    "offline artifact and the resource estimator."
+                ),
+            }
 
     artifact, payload, points = _load_points(ENERGY_SUBJECT)
     point, on_grid = _nearest_stored_point(points, float(bond_length))

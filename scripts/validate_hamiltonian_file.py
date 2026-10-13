@@ -42,6 +42,7 @@ to its format".
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 import sys
@@ -51,15 +52,16 @@ from typing import Any
 import numpy as np
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ARTIFACT = REPO_ROOT / "app" / "data" / "hamiltonians" / "h2_sto3g.json"
+HAMILTONIAN_DIR = REPO_ROOT / "app" / "data" / "hamiltonians"
+DEFAULT_ARTIFACT = HAMILTONIAN_DIR / "h2_sto3g.json"
 
-# The grid rule, stated explicitly and enforced below: every point of 0.20 .. 3.00
-# angstrom inclusive in 0.05 steps (57 uniform points), plus 0.74 angstrom, giving
-# 58 points in total, sorted ascending with no duplicate. The uniform part is built
-# from integers so floating-point drift cannot change the grid under us; 0.74 is
-# added separately because the 0.05 step misses it (0.74 would need index 10.8) and
-# it is the UI default and H2's real equilibrium bond length. The union makes a
-# duplicate impossible even if 0.74 ever landed exactly on the step.
+# The registry is mirrored here so a molecule key resolves to its file without
+# importing the application (this validator stays standalone and independent).
+MOLECULE_FILES = {"h2": "h2_sto3g.json", "lih": "lih_sto3g_active.json"}
+
+# The H2 grid, used as the fallback only when a file does not declare its own grid
+# (the committed H2 artifact predates the ``bond_length_grid`` field). New artifacts
+# declare their grid, so nothing here assumes 58 points or a 0.05 step for them.
 UNIFORM_POINTS = 57
 EXPECTED_POINTS = 58
 UNIFORM_BOND_LENGTHS = [round(0.20 + 0.05 * i, 2) for i in range(UNIFORM_POINTS)]
@@ -137,6 +139,30 @@ def _number(value: Any) -> float:
     return float(value)
 
 
+def expected_grid(data: dict) -> tuple[list[float], str]:
+    """The grid to check against, read from the file's own metadata when declared.
+
+    New artifacts declare ``bond_length_grid``, so no molecule's point count or
+    step is hard-coded here. A file without it -- the committed H2 artifact
+    predates the field -- falls back to the H2 grid, and only when it really is
+    H2; another molecule must declare its own grid rather than be measured
+    against H2's.
+    """
+    declared = data.get("bond_length_grid")
+    if declared is not None:
+        if not isinstance(declared, list) or not declared:
+            raise Failure("bond_length_grid must be a non-empty list when it is declared")
+        return [_number(value) for value in declared], "declared"
+
+    molecule = str(data.get("molecule", "")).strip().upper()
+    if molecule in ("", "H2"):
+        return list(EXPECTED_BOND_LENGTHS), "h2-default"
+    raise Failure(
+        f"{data.get('molecule')!r} declares no bond_length_grid; a non-H2 artifact must "
+        "declare its own grid rather than be checked against the H2 one"
+    )
+
+
 def check_top_level(data: Any) -> list[dict[str, Any]]:
     if not isinstance(data, dict):
         raise Failure(f"top level must be a JSON object, got {type(data).__name__}")
@@ -152,10 +178,10 @@ def check_top_level(data: Any) -> list[dict[str, Any]]:
     return data["points"]
 
 
-def check_grid(points: list[Any]) -> None:
-    """Exactly 58 points: 0.20 to 3.00 in 0.05 steps (57 uniform) plus 0.74, no duplicates."""
-    if len(points) != EXPECTED_POINTS:
-        raise Failure(f"expected exactly {EXPECTED_POINTS} bond lengths, found {len(points)}")
+def check_grid(points: list[Any], expected: list[float], source: str) -> None:
+    """The grid the file declares (or the H2 fallback), ascending, with no duplicates."""
+    if len(points) != len(expected):
+        raise Failure(f"expected exactly {len(expected)} bond lengths, found {len(points)}")
 
     lengths: list[float] = []
     for index, point in enumerate(points):
@@ -173,23 +199,35 @@ def check_grid(points: list[Any]) -> None:
         raise Failure("bond lengths are not in ascending order")
 
     mismatches = [
-        f"index {index}: expected {expected:g}, found {found:g}"
-        for index, (expected, found) in enumerate(zip(EXPECTED_BOND_LENGTHS, lengths))
-        if expected != found
+        f"index {index}: expected {want:g}, found {found:g}"
+        for index, (want, found) in enumerate(zip(expected, lengths))
+        if want != found
     ]
     if mismatches:
+        if source == "h2-default":
+            raise Failure(
+                "bond-length grid is not 0.20 to 3.00 A in 0.05 steps plus 0.74 A -- "
+                + "; ".join(mismatches[:5])
+            )
         raise Failure(
-            "bond-length grid is not 0.20 to 3.00 A in 0.05 steps plus 0.74 A -- "
+            "bond lengths do not match the file's declared bond_length_grid -- "
             + "; ".join(mismatches[:5])
         )
 
     first, last = lengths[0], lengths[-1]
-    if (first, last) != (0.20, 3.00):
-        raise Failure(f"grid must start at 0.20 and end at 3.00 A, got {first:g} .. {last:g}")
+    if (first, last) != (expected[0], expected[-1]):
+        raise Failure(
+            f"grid must start at {expected[0]:g} and end at {expected[-1]:g} A, got {first:g} .. {last:g}"
+        )
 
 
-def check_points(points: list[dict[str, Any]]) -> dict[str, float]:
-    """Field presence plus the physics claims. Returns measured summaries."""
+def check_points(
+    points: list[dict[str, Any]], n_qubits_expected: int
+) -> dict[str, float]:
+    """Field presence plus the physics claims. Returns measured summaries.
+
+    The qubit count is the file's own top-level ``n_qubits``; no width is assumed.
+    """
     problems: list[str] = []
     worst_qubit_deviation = 0.0
     # Tracked as a minimum, so it must start at +inf: starting at 0.0 made this
@@ -209,8 +247,24 @@ def check_points(points: list[dict[str, Any]]) -> dict[str, float]:
             problems.append(f"r={length:g}: pauli_terms must be a non-empty list")
             continue
 
-        if point["n_qubits"] != 2:
-            problems.append(f"r={length:g}: n_qubits must be 2, got {point['n_qubits']!r}")
+        if point["n_qubits"] != n_qubits_expected:
+            problems.append(
+                f"r={length:g}: n_qubits must be {n_qubits_expected}, got {point['n_qubits']!r}"
+            )
+            continue
+
+        widths = {len(str(term.get("pauli", ""))) for term in terms if isinstance(term, dict)}
+        if len(widths) != 1:
+            problems.append(
+                f"r={length:g}: all Pauli terms must have the same length, got {sorted(widths)}"
+            )
+            continue
+        width = widths.pop()
+        if width != n_qubits_expected:
+            problems.append(
+                f"r={length:g}: Pauli terms are {width} characters wide but n_qubits="
+                f"{n_qubits_expected}"
+            )
             continue
 
         bad_term = next(
@@ -220,7 +274,6 @@ def check_points(points: list[dict[str, Any]]) -> dict[str, float]:
                 if not isinstance(term, dict)
                 or "pauli" not in term
                 or "coefficient" not in term
-                or len(str(term.get("pauli", ""))) != 2
                 or set(str(term.get("pauli", ""))) - set("IXYZ")
                 or isinstance(term.get("coefficient"), bool)
                 or not isinstance(term.get("coefficient"), (int, float))
@@ -325,8 +378,29 @@ def check_recorded_claims(data: dict[str, Any], measured: dict[str, float]) -> N
     """The payload's own summary fields, so they cannot drift from the points."""
     if data["point_count"] != len(data["points"]):
         raise Failure(f"point_count is {data['point_count']} but points holds {len(data['points'])}")
-    if data["n_qubits"] != 2:
-        raise Failure(f"top-level n_qubits must be 2, got {data['n_qubits']!r}")
+
+    n_qubits = data["n_qubits"]
+    if isinstance(n_qubits, bool) or not isinstance(n_qubits, int) or n_qubits < 1:
+        raise Failure(f"top-level n_qubits must be a positive integer, got {n_qubits!r}")
+    point_widths = {
+        len(str(term["pauli"]))
+        for point in data["points"]
+        for term in point.get("pauli_terms", [])
+        if isinstance(term, dict) and "pauli" in term
+    }
+    if point_widths != {n_qubits}:
+        raise Failure(
+            f"top-level n_qubits is {n_qubits} but the stored Pauli terms are widths "
+            f"{sorted(point_widths)}"
+        )
+
+    if str(data.get("molecule", "")).strip().upper() != "H2":
+        active_space = data.get("active_space")
+        if not isinstance(active_space, str) or not active_space.strip():
+            raise Failure(
+                f"top-level field 'active_space' is required for {data.get('molecule')!r}"
+            )
+
     if str(data["mapping"]).lower() != "parity":
         raise Failure(f"expected the parity mapping, found {data['mapping']!r}")
     if data["two_qubit_reduction"] is not True:
@@ -362,7 +436,7 @@ def validate(path: Path) -> int:
             f"FAIL: {path} does not exist.\n"
             "  Nothing to validate. Generate it offline with "
             "scripts/precompute_hamiltonians.ipynb (Colab or WSL, because PySCF has no\n"
-            "  Windows wheel) and save the result to app/data/hamiltonians/h2_sto3g.json.\n"
+            f"  Windows wheel) and save the result to app/data/hamiltonians/{path.name}.\n"
             "  This validator will not create or invent the file.",
             file=sys.stderr,
         )
@@ -382,27 +456,55 @@ def validate(path: Path) -> int:
 
     try:
         points = check_top_level(data)
-        check_grid(points)
-        measured = check_points(points)
+        expected, source = expected_grid(data)
+        check_grid(points, expected, source)
+        measured = check_points(points, data["n_qubits"])
         check_recorded_claims(data, measured)
-        check_equilibrium_energy(points)
+        # The 0.74 A / -1.137 Ha equilibrium reference is an H2 fact; another
+        # molecule's grid has no reason to contain it.
+        if str(data.get("molecule", "")).strip().upper() == "H2":
+            check_equilibrium_energy(points)
     except Failure as exc:
         print(f"FAIL: {exc}", file=sys.stderr)
         return 1
 
-    print(f"  points                 : {len(points)} ({EXPECTED_BOND_LENGTHS[0]:g} .. {EXPECTED_BOND_LENGTHS[-1]:g} A)")
+    print(f"  points                 : {len(points)} ({expected[0]:g} .. {expected[-1]:g} A)")
     print(f"  worst qubit-vs-FCI gap : {measured['worst_qubit_deviation']:.3e} Ha")
     print(f"  smallest (HF - FCI)    : {measured['smallest_hf_minus_fci']:.6f} Ha  (must be >= 0)")
     print("OK: every check passed.")
     return 0
 
 
+def resolve_target(target: str | None) -> Path:
+    """A molecule key (h2, lih) or a file path, as the CLI accepts either."""
+    if target is None:
+        return DEFAULT_ARTIFACT
+    key = target.strip().lower()
+    if key in MOLECULE_FILES:
+        return HAMILTONIAN_DIR / MOLECULE_FILES[key]
+    return Path(target).resolve()
+
+
 def main() -> int:
-    if len(sys.argv) > 2:
-        print(f"usage: {Path(sys.argv[0]).name} [path]", file=sys.stderr)
+    parser = argparse.ArgumentParser(
+        prog=Path(sys.argv[0]).name,
+        description="Validate an offline Hamiltonian artifact, by molecule key or file path.",
+    )
+    parser.add_argument("target", nargs="?", default=None, help="molecule key (h2, lih) or a JSON path")
+    parser.add_argument(
+        "--molecule",
+        choices=sorted(MOLECULE_FILES),
+        default=None,
+        help="molecule key; mutually exclusive with a path target",
+    )
+    args = parser.parse_args()
+
+    if args.molecule is not None and args.target is not None:
+        print("usage: pass a molecule key or a path, not both", file=sys.stderr)
         return 2
-    path = Path(sys.argv[1]).resolve() if len(sys.argv) == 2 else DEFAULT_ARTIFACT
-    return validate(path)
+    if args.molecule is not None:
+        return validate(HAMILTONIAN_DIR / MOLECULE_FILES[args.molecule])
+    return validate(resolve_target(args.target))
 
 
 if __name__ == "__main__":

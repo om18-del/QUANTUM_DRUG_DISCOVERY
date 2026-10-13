@@ -75,8 +75,59 @@ Example response:
 
 ### Quantum
 
+#### GET /api/quantum/molecules
+
+- Lists the molecules the artifact layer knows about, with whether each one's artifact file is
+  actually present on disk. It reads the registry and stats two files; it computes nothing.
+- `available` is `true` only when `app/data/hamiltonians/<file>` exists. A molecule with
+  `available: false` is a **known** molecule whose artifact has not been generated yet — its
+  curve answers `503`, never placeholder numbers.
+- The registry is deliberately tiny (H2 and LiH). A molecule absent from this list is not
+  "coming soon": the curve endpoint answers `404 unknown_molecule` for it.
+
+Example request:
+```http
+GET /api/quantum/molecules HTTP/1.1
+Host: 127.0.0.1:8000
+```
+
+Example response (LiH's artifact is not generated in this repository):
+```json
+{
+  "molecules": [
+    {
+      "molecule": "h2",
+      "label": "H2",
+      "file": "h2_sto3g.json",
+      "available": true
+    },
+    {
+      "molecule": "lih",
+      "label": "LiH (active space)",
+      "file": "lih_sto3g_active.json",
+      "available": false
+    }
+  ],
+  "count": 2,
+  "available_count": 1
+}
+```
+
+Example response for `GET /api/quantum/h2-curve?molecule=nope` — standard error shape, `404`:
+```json
+{
+  "error": {
+    "code": "unknown_molecule",
+    "message": "unknown molecule 'nope'; expected one of ['h2', 'lih']"
+  }
+}
+```
+
 #### GET /api/quantum/h2-curve
 
+- Optional query parameter `molecule` (default `h2`), so the existing path keeps working
+  unchanged. `h2` returns the response documented in this section; `lih` returns the
+  artifact-only response documented below.
 - Returns HF, exact (FCI) and VQE energies across bond lengths, built from the offline artifact
   `app/data/hamiltonians/h2_sto3g.json` (58 stored points: 57 uniform from 0.20 to 3.00 Å plus
   the UI default 0.74 Å).
@@ -207,6 +258,32 @@ live response):
 }
 ```
 
+#### GET /api/quantum/h2-curve?molecule=lih (any non-H2 registry molecule)
+
+- **No VQE is claimed here.** For a molecule other than H2 this endpoint serves exactly two
+  things: the stored artifact data, and an exact ground energy from a NumPy diagonalisation of
+  the same stored Pauli terms. The response deliberately has **no** `vqe_energies_ha` and no
+  `vqe_error_mha`, so nothing can be read as a variational result for a molecule we never
+  optimised.
+- Fields: `molecule`, `basis`, `n_qubits`, `active_space` (the free-text description written by
+  the precompute script, saying exactly which orbitals were frozen and removed), `metadata`,
+  `artifact`, `status`, `units`, `convention`, `point_count`, `note`, the parallel arrays
+  `bond_lengths_angstrom`, `hf_energies_ha`, `fci_energies_ha`, `nuclear_repulsion_energies_ha`,
+  `exact_energies_ha`, and the same rows as `points` (`bond_length_angstrom`, `hf_energy_ha`,
+  `fci_energy_ha`, `nuclear_repulsion_ha`, `exact_energy_ha`).
+- `exact_energies_ha` is computed here, not stored: each stored point's `pauli_terms` are
+  assembled into a dense matrix and diagonalised, the nuclear repulsion is added, and the total
+  is cross-checked against that point's stored `fci_energy_ha`. A disagreement beyond 1e-8 Ha
+  means the file contradicts itself and answers `500` `simulation_error` instead of reporting an
+  exact reference.
+- **`n_qubits` is capped at 8** for that dense diagonalisation. A wider stored Hamiltonian
+  answers `422 too_many_qubits`; the exact reference is refused rather than approximated, and no
+  curve data is served alongside the error.
+- A missing artifact answers `503 hamiltonian_unavailable` (the file name and the molecule label
+  are named in the message), and an unknown `molecule` answers `404 unknown_molecule`. No example
+  response is shown here because `lih_sto3g_active.json` has not been generated: this repository
+  contains no LiH numbers, and none are invented for the documentation.
+
 #### POST /api/quantum/simulate
 
 - Body: `{ "molecule": "H2", "bond_length": number, "shots": null | number, "noise": number,
@@ -214,6 +291,22 @@ live response):
   `bond_length`. `seed` (0..4294967295), `maxiter` (1..10000) and `shots` (positive integer or
   null) are optional; bad values answer `422` with `invalid_seed` / `invalid_maxiter` /
   `invalid_shots`.
+- **VQE is H2 only.** A `molecule` naming a registry molecule other than H2 answers `422`
+  `vqe_not_supported_for_molecule` with no result fields, because this build has one fixed
+  2-qubit Ry ansatz and will not pretend it fits another molecule:
+
+```json
+{
+  "error": {
+    "code": "vqe_not_supported_for_molecule",
+    "message": "Only H2 is simulated with VQE in this build. Only the stored curve and the exact diagonalisation are available for LiH (active space)."
+  }
+}
+```
+
+  That molecule's data is reachable through `GET /api/quantum/h2-curve?molecule=lih` instead
+  (stored curve plus an exact diagonalisation). A `molecule` that is not in the registry at all
+  keeps this endpoint's existing `status: "placeholder"` answer rather than erroring.
 - **A real VQE runs in this request**: a fixed `2 x [Ry on each qubit, then a CX ladder]` ansatz
   minimised by SciPy COBYLA (3 restarts, default 150 evaluations per restart) against the
   artifact's Pauli terms through a Qiskit estimator. `shots: null` (the default) selects the

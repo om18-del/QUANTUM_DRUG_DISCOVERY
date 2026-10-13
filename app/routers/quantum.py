@@ -7,11 +7,14 @@ from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 
 from app.services.quantum_service import (
+    DEFAULT_MOLECULE,
+    QuantumRequestError,
     VariationalPrincipleViolation,
-    compute_h2_curve,
+    compute_curve,
     compute_h2_simulate,
     compute_hadamard_demo,
     compute_resources,
+    list_molecules,
 )
 
 QuantumResponse = Union[dict, JSONResponse]
@@ -23,14 +26,24 @@ def _error_response(code: str, message: str, status_code: int) -> JSONResponse:
     return JSONResponse(status_code=status_code, content={"error": {"code": code, "message": message}})
 
 
+@router.get("/molecules", response_model=None)
+def get_molecules() -> dict:
+    """The molecule registry, with whether each artifact file is present."""
+    return list_molecules()
+
+
 @router.get("/h2-curve", response_model=None)
-def get_h2_curve() -> QuantumResponse:
+def get_h2_curve(molecule: str = Query(DEFAULT_MOLECULE)) -> QuantumResponse:
+    """The stored curve for a molecule (default H2); the path is unchanged."""
+    label = "H2" if str(molecule).strip().lower() == "h2" else str(molecule)
     try:
-        return compute_h2_curve()
+        return compute_curve(molecule)
+    except QuantumRequestError as exc:
+        return _error_response(exc.code, exc.message, exc.status_code)
     except FileNotFoundError as exc:
         return _error_response("hamiltonian_unavailable", str(exc), 503)
     except Exception as exc:
-        return _error_response("simulation_error", f"H2 curve computation failed: {exc}", 500)
+        return _error_response("simulation_error", f"{label} curve computation failed: {exc}", 500)
 
 
 def _parse_optional_int(body: dict, field: str, code: str, low: int, high: int):
@@ -115,6 +128,10 @@ async def post_h2_simulate(request: Request) -> QuantumResponse:
             seed=seed,
             maxiter=maxiter,
         )
+    except QuantumRequestError as exc:
+        # A request-level answer (unknown molecule, unsupported VQE, too many
+        # qubits), never a fault: its own code and status, no result fields.
+        return _error_response(exc.code, exc.message, exc.status_code)
     except VariationalPrincipleViolation as exc:
         # The optimiser broke the variational principle: refuse the result with
         # its own code instead of reporting a physically impossible energy.

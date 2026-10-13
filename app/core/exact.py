@@ -42,6 +42,71 @@ PAULI_MATRICES: dict[str, NDArray] = {
 
 VALID_PAULI_CHARS = frozenset(PAULI_MATRICES)
 
+# ---------------------------------------------------------------------------
+# Molecule registry: which offline artifact backs which molecule
+# ---------------------------------------------------------------------------
+# The artifact layer used to be H2-only, hard-coding one filename and one shape.
+# This registry is the single place a molecule key maps to an artifact file; the
+# service reads the file (never this module), and every reader below accepts the
+# key so an unknown molecule fails clearly instead of reading the wrong file.
+MOLECULE_REGISTRY: dict[str, dict[str, str]] = {
+    "h2": {"file": "h2_sto3g.json", "label": "H2"},
+    "lih": {"file": "lih_sto3g_active.json", "label": "LiH (active space)"},
+}
+
+DEFAULT_MOLECULE = "h2"
+
+# Refuse a dense NumPy diagonalisation above this many qubits: 2**n grows fast and
+# a dense exact reference is not the right tool beyond a small active space. The
+# endpoint answers 422 ``too_many_qubits`` rather than approximating.
+MAX_DENSE_QUBITS = 8
+
+
+class UnknownMoleculeError(ValueError):
+    """A molecule key that is not in ``MOLECULE_REGISTRY`` (mapped to HTTP 404)."""
+
+
+class TooManyQubitsError(ValueError):
+    """A stored Hamiltonian too wide to diagonalise densely (mapped to HTTP 422)."""
+
+
+def normalize_molecule_key(molecule: str = DEFAULT_MOLECULE) -> str:
+    """Canonical lower-case registry key, or ``UnknownMoleculeError``."""
+    key = str(molecule).strip().lower()
+    if key not in MOLECULE_REGISTRY:
+        raise UnknownMoleculeError(
+            f"unknown molecule {molecule!r}; expected one of {sorted(MOLECULE_REGISTRY)}"
+        )
+    return key
+
+
+def molecule_entry(molecule: str = DEFAULT_MOLECULE) -> dict[str, str]:
+    """The registry entry for a molecule key."""
+    return MOLECULE_REGISTRY[normalize_molecule_key(molecule)]
+
+
+def artifact_filename(molecule: str = DEFAULT_MOLECULE) -> str:
+    """The artifact file that backs a molecule key."""
+    return molecule_entry(molecule)["file"]
+
+
+def molecule_label(molecule: str = DEFAULT_MOLECULE) -> str:
+    """The display label for a molecule key."""
+    return molecule_entry(molecule)["label"]
+
+
+def ensure_dense_diagonalisable(
+    n_qubits: int,
+    molecule: str = DEFAULT_MOLECULE,
+) -> None:
+    """Raise ``TooManyQubitsError`` when a dense reference would be too large."""
+    if int(n_qubits) > MAX_DENSE_QUBITS:
+        raise TooManyQubitsError(
+            f"{molecule} maps to {int(n_qubits)} qubits, beyond the {MAX_DENSE_QUBITS}-qubit "
+            "limit for an exact dense diagonalisation. The exact reference is refused rather "
+            "than approximated."
+        )
+
 
 def diagonalize_ground_state(hamiltonian: NDArray) -> float:
     """Return the lowest eigenvalue of a Hermitian Hamiltonian matrix.
@@ -208,6 +273,14 @@ class ArtifactPointHamiltonian:
     matrix: NDArray
     ground_energy_ha: float
     units: str = ARTIFACT_UNITS
+    # Artifact-level provenance, carried through so a caller does not have to
+    # re-read the payload to describe the molecule it just solved. The width is
+    # always taken from the Pauli strings, never assumed to be 2.
+    molecule: str | None = None
+    basis: str | None = None
+    active_space: str | None = None
+    hf_energy_ha: float | None = None
+    fci_energy_ha: float | None = None
 
     @property
     def total_energy_ha(self) -> float:
@@ -228,12 +301,17 @@ def _artifact_points(data: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     return list(points)
 
 
-def h2_artifact_bond_lengths(data: Mapping[str, Any]) -> list[float]:
+def h2_artifact_bond_lengths(
+    data: Mapping[str, Any], molecule: str = DEFAULT_MOLECULE
+) -> list[float]:
     """Every stored bond length, in the artifact's own order."""
+    normalize_molecule_key(molecule)
     return [float(point["bond_length_angstrom"]) for point in _artifact_points(data)]
 
 
-def h2_artifact_pauli_terms(point: Mapping[str, Any]) -> dict[str, float]:
+def h2_artifact_pauli_terms(
+    point: Mapping[str, Any], molecule: str = DEFAULT_MOLECULE
+) -> dict[str, float]:
     """``{pauli_string: coefficient}`` for one stored point's ``pauli_terms`` list.
 
     Validates the writer's shape rather than trusting it: every entry must be an
@@ -241,6 +319,7 @@ def h2_artifact_pauli_terms(point: Mapping[str, Any]) -> dict[str, float]:
     Repeated Pauli strings are summed, so a duplicate cannot silently overwrite a
     coefficient.
     """
+    normalize_molecule_key(molecule)
     if not isinstance(point, Mapping):
         raise ValueError(f"A stored point must be an object, got {type(point).__name__}")
 
@@ -284,6 +363,7 @@ def h2_artifact_pauli_terms(point: Mapping[str, Any]) -> dict[str, float]:
 def h2_artifact_point(
     data: Mapping[str, Any],
     bond_length_angstrom: float,
+    molecule: str = DEFAULT_MOLECULE,
 ) -> Mapping[str, Any]:
     """The stored point for exactly this bond length. Never interpolates.
 
@@ -291,6 +371,7 @@ def h2_artifact_point(
     contain the request. Applying SPEC.md section 6's "snap to the nearest stored
     point and disclose it" rule is the caller's job, not this function's.
     """
+    normalize_molecule_key(molecule)
     requested = float(bond_length_angstrom)
     points = _artifact_points(data)
 
@@ -306,7 +387,11 @@ def h2_artifact_point(
     )
 
 
-def nearest_stored_bond_length(data: Mapping[str, Any], bond_length_angstrom: float) -> float:
+def nearest_stored_bond_length(
+    data: Mapping[str, Any],
+    bond_length_angstrom: float,
+    molecule: str = DEFAULT_MOLECULE,
+) -> float:
     """The stored bond length closest to the request. Lookup only, no interpolation.
 
     SPEC.md section 6 documents the simulate endpoint's handling of an off-grid
@@ -314,6 +399,7 @@ def nearest_stored_bond_length(data: Mapping[str, Any], bond_length_angstrom: fl
     deterministic tie-break; ``min`` returns the first of equal distances, i.e. the
     shorter bond length. The endpoint itself is not wired to this module yet.
     """
+    normalize_molecule_key(molecule)
     requested = float(bond_length_angstrom)
     points = _artifact_points(data)
     nearest = min(points, key=lambda p: abs(float(p["bond_length_angstrom"]) - requested))
@@ -323,6 +409,7 @@ def nearest_stored_bond_length(data: Mapping[str, Any], bond_length_angstrom: fl
 def h2_hamiltonian_from_artifact(
     data: Mapping[str, Any],
     bond_length_angstrom: float,
+    molecule: str = DEFAULT_MOLECULE,
 ) -> ArtifactPointHamiltonian:
     """Read one stored bond length of the offline artifact into a Hamiltonian.
 
@@ -335,10 +422,11 @@ def h2_hamiltonian_from_artifact(
     Raises ``ValueError`` for an off-grid bond length or a payload the writer
     could not have produced. No interpolation happens anywhere in this path.
     """
-    point = h2_artifact_point(data, bond_length_angstrom)
-    terms = h2_artifact_pauli_terms(point)
+    key = normalize_molecule_key(molecule)
+    point = h2_artifact_point(data, bond_length_angstrom, key)
+    terms = h2_artifact_pauli_terms(point, key)
 
-    widths = {len(key) for key in terms}
+    widths = {len(pauli_string) for pauli_string in terms}
     if len(widths) != 1:
         raise ValueError(f"All Pauli strings must have the same length, got {sorted(widths)}")
     width = widths.pop()
@@ -359,6 +447,18 @@ def h2_hamiltonian_from_artifact(
             f"A stored point needs a finite 'nuclear_repulsion_ha', got {nuclear!r}"
         )
 
+    payload_molecule = data.get("molecule")
+    active_space = data.get("active_space")
+    # The schema carries an ``active_space`` description for anything that is not
+    # the full H2 space. H2 predates that field (its committed artifact has no
+    # active space to describe), so it is only required for other molecules.
+    if isinstance(payload_molecule, str) and payload_molecule.strip().upper() != "H2":
+        if not isinstance(active_space, str) or not active_space.strip():
+            raise ValueError(
+                f"An artifact for {payload_molecule!r} must carry an 'active_space' description; "
+                f"found {active_space!r}"
+            )
+
     matrix = pauli_sum_matrix(terms, width)
     return ArtifactPointHamiltonian(
         bond_length_angstrom=float(point["bond_length_angstrom"]),
@@ -367,4 +467,9 @@ def h2_hamiltonian_from_artifact(
         nuclear_repulsion_ha=float(nuclear),
         matrix=matrix,
         ground_energy_ha=diagonalize_ground_state(matrix),
+        molecule=payload_molecule if isinstance(payload_molecule, str) else None,
+        basis=data.get("basis") if isinstance(data.get("basis"), str) else None,
+        active_space=active_space if isinstance(active_space, str) else None,
+        hf_energy_ha=point.get("hf_energy_ha") if isinstance(point.get("hf_energy_ha"), (int, float)) else None,
+        fci_energy_ha=point.get("fci_energy_ha") if isinstance(point.get("fci_energy_ha"), (int, float)) else None,
     )

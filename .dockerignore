@@ -1,0 +1,39 @@
+# Build context excludes. Keep the image small and keep secrets out of it.
+#
+# `app/` (including `app/data/hamiltonians/` and `app/data/curated_complexes/`)
+# and `frontend/` are deliberately NOT excluded: they are the application.
+.git
+.github
+.gitignore
+.gitattributes
+
+# Local environments and caches
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Offline tooling: PySCF has no place in this image (see docs/DEPLOYMENT.md)
+scripts
+
+# Tests and the docs directory are not needed to run the server. The top-level
+# Markdown files are shipped (the Dockerfile copies them) but nothing else.
+tests
+docs
+
+# Local run artifacts and logs
+*.log
+*.sqlite
+.qdde_server.pid
+.qdde_ui.log
+tmp
+temp
