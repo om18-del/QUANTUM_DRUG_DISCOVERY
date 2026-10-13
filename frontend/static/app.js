@@ -488,6 +488,14 @@ window.addEventListener("DOMContentLoaded", () => {
 
 /* --------------------------------------------------------------- Quantum --- */
 
+/* The last simulate run's bond-length disclosure, so the curve can mark where the
+   point came from. Null until a run has succeeded. */
+let lastSimulateMarker = null;
+
+/* The last successfully loaded curve payload, so a simulate run can re-mark the
+   existing chart without another network round-trip. */
+let lastCurveBody = null;
+
 async function loadCurve() {
   const canvas = $("#h2-curve");
   const status = $("#h2-curve-status");
@@ -502,6 +510,7 @@ async function loadCurve() {
     if (detail) detail.innerHTML = detailNote("Why this is unavailable", longText);
     setStatus(status, "placeholder", "not available");
     meta.textContent = "";
+    lastCurveBody = null;
   };
 
   if (!canvas || !canvas.getContext) {
@@ -523,6 +532,7 @@ async function loadCurve() {
     if (detail) detail.innerHTML = "";
     setStatus(status, "ok", "curve computed");
     meta.textContent = `${body.molecule || "—"} · ${body.basis || "—"} · ${body.bond_lengths_angstrom ? body.bond_lengths_angstrom.length : 0} points`;
+    lastCurveBody = body;
     drawCurve(ctx, canvas, body);
   } catch (e) {
     const err = e && e.error ? e.error : e;
@@ -633,6 +643,54 @@ function drawCurve(ctx, canvas, body) {
   ctx.fillRect(legX + 80, legY - 5, 12, 2);
   ctx.fillStyle = "#e6eaf4";
   ctx.fillText("VQE", legX + 96, legY);
+
+  // Mark the bond length the last simulate run used: a vertical guide, a dot on
+  // the exact curve, and the snap disclosure ("requested X, used Y") when the
+  // request was off-grid. Nothing is drawn until a run has succeeded.
+  if (lastSimulateMarker && Array.isArray(xs) && xs.length && Array.isArray(exact) && exact.length) {
+    const used = Number(lastSimulateMarker.used);
+    if (Number.isFinite(used)) {
+      let nearestIndex = 0;
+      let nearestDist = Infinity;
+      for (let i = 0; i < xs.length; i++) {
+        const d = Math.abs(xs[i] - used);
+        if (d < nearestDist) { nearestDist = d; nearestIndex = i; }
+      }
+      const mx = xScale(nearestIndex);
+      const my = yScale(exact[nearestIndex]);
+      ctx.strokeStyle = "#ff8f6b";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(mx, pad.top);
+      ctx.lineTo(mx, pad.top + plotH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#ff8f6b";
+      ctx.beginPath();
+      ctx.arc(mx, my, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      const requested = Number(lastSimulateMarker.requested);
+      const label = lastSimulateMarker.snapped && Number.isFinite(requested)
+        ? `used ${used.toFixed(3)} Å (requested ${requested.toFixed(3)})`
+        : `used ${used.toFixed(3)} Å`;
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "left";
+      const labelWidth = Math.min(ctx.measureText(label).width + 8, cssW - mx - 6);
+      ctx.fillStyle = "rgba(11, 15, 28, 0.86)";
+      ctx.fillRect(mx + 4, pad.top + plotH - 15, Math.max(0, labelWidth), 14);
+      ctx.fillStyle = "#ff8f6b";
+      ctx.fillText(label, mx + 7, pad.top + plotH - 4);
+    }
+  }
+}
+
+/** Re-render the cached curve payload, e.g. to add a new simulate marker. */
+function redrawCurveWithMarker() {
+  const canvas = $("#h2-curve");
+  if (!canvas || !canvas.getContext || !lastCurveBody) return;
+  drawCurve(canvas.getContext("2d"), canvas, lastCurveBody);
 }
 
 async function loadHadamard() {
@@ -663,7 +721,10 @@ async function loadHadamard() {
 async function runSimulate() {
   const bond = $("#sim-bond").value;
   const molecule = $("#sim-molecule").value;
-  const shots = $("#sim-shots").value;
+  // Default run mode is the exact statevector (shots: null); the dropdown's value
+  // is either "statevector" or a shot count. There is no free-text shots box.
+  const runMode = $("#sim-run-mode") ? $("#sim-run-mode").value : "statevector";
+  const shots = runMode === "statevector" ? null : parseInt(runMode, 10);
   const noise = $("#sim-noise").value;
   const status = $("#simulate-status");
   const el = $("#simulate-result");
@@ -674,7 +735,7 @@ async function runSimulate() {
     const { body } = await apiFetch("/quantum/simulate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bond_length: parseFloat(bond), shots: parseInt(shots, 10), noise: parseFloat(noise), molecule }),
+      body: JSON.stringify({ bond_length: parseFloat(bond), shots, noise: parseFloat(noise), molecule }),
     });
 
     if (body.status === "placeholder") {
@@ -688,20 +749,50 @@ async function runSimulate() {
       return;
     }
 
-    setStatus(status, "ok", `${body.molecule} · ${Number(body.bond_length).toFixed(3)} Å`);
+    // The panel marks where this run's energy came from, and says so when the
+    // requested bond length was off the stored grid.
+    const used = Number(body.used_bond_length ?? body.bond_length);
+    const requested = Number(body.requested_bond_length ?? body.bond_length);
+    const snapped = Boolean(body.snapped) || (Number.isFinite(requested) && Number.isFinite(used) && Math.abs(requested - used) > 1e-9);
+    lastSimulateMarker = Number.isFinite(used)
+      ? { used, requested, snapped }
+      : null;
+    redrawCurveWithMarker();
+
+    const isShot = body.shots != null;
+    const stdHa = body.vqe_energy_std_ha;
+    const budget = `${body.n_restarts ?? body.restarts ?? "—"} restarts × ${body.total_energy_evaluations ?? body.iterations ?? "—"} evaluations`;
+    const snapRow = snapped
+      ? `<dt>bond-length snap</dt><dd>requested ${requested.toFixed(3)} Å, used ${used.toFixed(3)} Å</dd>`
+      : "";
+    const uncertaintyRow = isShot && stdHa != null
+      ? `<dt>VQE uncertainty</dt><dd>± ${(Number(stdHa) * 1000).toFixed(2)} mHa (${escapeHtml(String(body.vqe_energy_uncertainty_method || "").replace(/_/g, " "))})</dd>`
+      : "";
+    // The 1.6 mHa chemical-accuracy badge is a noiseless claim only; a shot run gets
+    // the sampling-error note instead, never a pass/fail badge.
+    const accuracyBadge = isShot
+      ? `<div class="shot-note">shot noise: sampling error, not a hardware result</div>`
+      : (body.within_chemical_accuracy
+          ? `<div class="accuracy-badge ok">within 1.6 mHa of exact</div>`
+          : `<div class="accuracy-badge warn">outside the 1.6 mHa target</div>`);
+
+    setStatus(status, "ok", `${body.molecule} · ${used.toFixed(3)} Å`);
     el.innerHTML = `
-      <div class="computed-note">status: ${body.status}</div>
+      <div class="computed-note">status: ${escapeHtml(body.status)}</div>
       <dl>
         <dt>molecule</dt><dd>${escapeHtml(body.molecule)}</dd>
-        <dt>bond length</dt><dd>${Number(body.bond_length).toFixed(3)} Å</dd>
+        <dt>bond length used</dt><dd>${used.toFixed(3)} Å</dd>
+        ${snapRow}
+        <dt>HF energy</dt><dd>${formatEnergy(body.hf_energy_ha)}</dd>
         <dt>exact energy</dt><dd>${formatEnergy(body.exact_energy_ha)}</dd>
         <dt>VQE energy</dt><dd>${formatEnergy(body.vqe_energy_ha)}</dd>
-        <dt>error</dt><dd>${formatMha(body.error_mha)}</dd>
-        <dt>shots</dt><dd>${body.shots}</dd>
-        <dt>noise</dt><dd>${Number(body.noise).toFixed(2)}</dd>
+        ${uncertaintyRow}
+        <dt>error vs exact</dt><dd>${formatMha(body.error_mha)}</dd>
+        <dt>run mode</dt><dd>${isShot ? `${body.shots} shots` : "exact statevector"}</dd>
+        <dt>optimisation budget</dt><dd>${budget}</dd>
         <dt>estimator</dt><dd>${escapeHtml(body.estimator_class_name || "—")}</dd>
-        <dt>convergence steps</dt><dd>${Array.isArray(body.convergence_history_ha) ? body.convergence_history_ha.length : "—"}</dd>
       </dl>
+      ${accuracyBadge}
       ${jsonBlock(body)}
     `;
   } catch (e) {

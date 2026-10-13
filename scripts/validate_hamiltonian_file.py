@@ -33,8 +33,11 @@ The required field lists below mirror the contract in
 ``scripts/precompute_hamiltonians.py``. ``app/core`` now reads that payload
 (``h2_hamiltonian_from_artifact`` and friends in ``app/core/exact.py``), while the
 older ``h2_sto3g_hamiltonian_from_json`` there still reads a different shape
-(``n_qubits`` plus a dense ``matrix``). Neither is wired to a route yet, which is
-why the API reports the artifact as "present but not yet wired to its format".
+(``n_qubits`` plus a dense ``matrix``). Routers and services may not import
+``app.core`` (a test enforces that), so ``app/services/quantum_service.py`` reads
+the payload itself and serves both the curve and the single point from it; only
+the resource estimate still reports the artifact as "present but not yet wired
+to its format".
 """
 
 from __future__ import annotations

@@ -29,20 +29,27 @@ Health check:
 
 ## Generating the H2 Hamiltonian artifact
 
-The Quantum Lab's H2 energy curve and its resource estimate are both built from one offline
-artifact, `app/data/hamiltonians/h2_sto3g.json`. That file is **not** committed, so until you
-generate it the app reports the curve and the estimate as *not available* rather than showing
+The Quantum Lab's H2 energy curve and its single-point simulation are both built from one
+offline artifact, `app/data/hamiltonians/h2_sto3g.json`, which **is** committed (58 points,
+validated by `scripts/validate_hamiltonian_file.py`). The curve endpoint only reads it. The
+simulate endpoint runs a real VQE — a small Ry ansatz minimised with SciPy COBYLA through a
+Qiskit estimator — against the artifact's stored Pauli terms and compares it with an exact NumPy
+diagonalisation of the same operator. It is a classical simulation (no quantum hardware, no
+noise model), a fixed seed makes it reproducible, and `python scripts/measure_h2_vqe.py`
+reproduces the measurements listed in RESULTS.md. The resource estimate is the one panel still
+withheld — it is not wired to the artifact yet, so it reports *not available* rather than
 placeholder numbers.
 
-PySCF publishes no Windows wheel, so the precompute has to run where PySCF works — WSL or
-Google Colab:
+PySCF publishes no Windows wheel, so regenerating the artifact has to happen where PySCF works
+— WSL or Google Colab:
 
 1. Open `scripts/precompute_hamiltonians.ipynb` in Colab (or run
    `python scripts/precompute_hamiltonians.py` inside WSL).
 2. Install the pinned set the notebook lists (`pyscf`, `qiskit-nature` and their pins).
 3. Run the notebook end to end. It writes `h2_sto3g.json`.
-4. Save that file into `app/data/hamiltonians/` in this repository.
-5. Restart the server and open the Quantum Lab tab — “Refresh curve” will draw the curve.
+4. Save that file into `app/data/hamiltonians/` in this repository (overwriting the committed
+   one) and run `python scripts/validate_hamiltonian_file.py` on it.
+5. Restart the server and open the Quantum Lab tab — “Refresh curve” will redraw the curve.
 
 The viewer panels load `3Dmol-min.js` from `https://3dmol.csb.pitt.edu`, so the 3D viewers need
 that host to be reachable; the API itself never makes a network call at request time for the

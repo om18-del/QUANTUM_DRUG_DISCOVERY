@@ -77,13 +77,28 @@ Example response:
 
 #### GET /api/quantum/h2-curve
 
-- Returns VQE and exact energies across bond lengths, built from the offline artifact
-  `app/data/hamiltonians/h2_sto3g.json`.
-- **That artifact is not in the repository yet.** PySCF publishes no Windows wheel, so it is
-  generated with `scripts/precompute_hamiltonians.ipynb` in Colab or WSL.
+- Returns HF, exact (FCI) and VQE energies across bond lengths, built from the offline artifact
+  `app/data/hamiltonians/h2_sto3g.json` (58 stored points: 57 uniform from 0.20 to 3.00 Å plus
+  the UI default 0.74 Å).
+- The artifact **is** in the repository. PySCF publishes no Windows wheel, so it was generated
+  with `scripts/precompute_hamiltonians.ipynb` in Colab or WSL and is checked by
+  `scripts/validate_hamiltonian_file.py`; this endpoint only reads it.
+- `metadata` carries the documented provenance, checked against the file before anything is
+  served: basis `STO-3G`, `parity` mapping with two-qubit reduction, `n_qubits: 2`, and
+  `source: "precomputed offline with PySCF + qiskit-nature"`. An artifact that declares
+  something else answers `500` instead of serving the mismatch.
+- The parallel arrays (`bond_lengths_angstrom`, `hf_energies_ha`, `exact_energies_ha`,
+  `vqe_energies_ha`, `nuclear_repulsion_energies_ha`) and the per-point `points` list answer the
+  same data twice: `hf`/`exact`/`vqe` are TOTAL energies (electronic plus nuclear repulsion) as
+  the artifact's `convention` field states, with the nuclear part also reported separately.
+- No optimiser, shots or noise run inside this request: each point is the stored PySCF HF/FCI
+  reference and the stored ground energy of the mapped qubit Hamiltonian plus nuclear
+  repulsion, and `note` says so on every response. The real VQE loop lives on the simulate
+  endpoint below.
 - An earlier build served a hand-typed 4x4 matrix from `app/data/hamiltonians/` and labelled it
-  `"status": "computed"`. Those files have been deleted, and the endpoint now reports the curve
-  as unavailable rather than presenting placeholder numbers as computed physics.
+  `"status": "computed"`. Those files have been deleted. This endpoint serves either the stored
+  grid or an error (503 when the file is absent, 500 when it is present but malformed); it never
+  fills a gap with placeholder numbers.
 
 Example request:
 ```http
@@ -101,26 +116,139 @@ Example response while the artifact is missing — standard error shape, `503`:
 }
 ```
 
-Example response once the artifact exists, before the curve is wired to its format:
+Example response with the committed artifact (the parallel arrays and the `points` list
+truncated to their first four of 58 entries; every number below is copied verbatim from the
+live response):
 ```json
 {
   "molecule": "H2",
-  "basis": "sto-3g",
+  "basis": "STO-3G",
+  "metadata": {
+    "basis": "STO-3G",
+    "mapping": "parity",
+    "two_qubit_reduction": true,
+    "mapping_note": "parity mapping with two-qubit reduction",
+    "n_qubits": 2,
+    "source": "precomputed offline with PySCF + qiskit-nature"
+  },
   "artifact": "h2_sto3g.json",
-  "bond_lengths_angstrom": [],
-  "exact_energies_ha": [],
-  "vqe_energies_ha": [],
-  "vqe_error_mha": [],
-  "status": "placeholder",
-  "note": "h2_sto3g.json is present but this endpoint is not yet wired to its format, so the H2 curve cannot be drawn in this build."
+  "status": "computed",
+  "note": "Computed from the 58 stored points in h2_sto3g.json. Exact energies are the stored PySCF FCI reference, and VQE energies are the stored ground energy of the mapped qubit Hamiltonian plus nuclear repulsion, already minimised in the offline precompute. No optimisation, shots or noise run in this request.",
+  "units": "hartree",
+  "convention": "Each entry's pauli_terms describe the electronic Hamiltonian only. The smallest eigenvalue of those terms plus nuclear_repulsion_ha equals fci_energy_ha. Determine the ground energy by adding nuclear_repulsion_ha.",
+  "point_count": 58,
+  "bond_lengths_angstrom": [
+    0.2,
+    0.25,
+    0.3,
+    0.35
+  ],
+  "hf_energies_ha": [
+    0.16417501206169538,
+    -0.3050005337593622,
+    -0.5938277585357272,
+    -0.7804549020715259
+  ],
+  "exact_energies_ha": [
+    0.15748213479836348,
+    -0.3122699027007898,
+    -0.6018037107656871,
+    -0.7892693924044136
+  ],
+  "vqe_energies_ha": [
+    0.15748213479836437,
+    -0.312269902700788,
+    -0.6018037107656862,
+    -0.7892693924044119
+  ],
+  "nuclear_repulsion_energies_ha": [
+    2.6458860546,
+    2.11670884368,
+    1.7639240364000002,
+    1.5119348883428574
+  ],
+  "vqe_error_mha": [
+    8.881784197001252e-13,
+    1.7763568394002505e-12,
+    8.881784197001252e-13,
+    1.7763568394002505e-12
+  ],
+  "max_deviation_from_fci_ha": 2.4424906541753444e-15,
+  "points": [
+    {
+      "bond_length_angstrom": 0.2,
+      "hf_energy_ha": 0.16417501206169538,
+      "fci_energy_ha": 0.15748213479836348,
+      "nuclear_repulsion_ha": 2.6458860546,
+      "vqe_energy_ha": 0.15748213479836437
+    },
+    {
+      "bond_length_angstrom": 0.25,
+      "hf_energy_ha": -0.3050005337593622,
+      "fci_energy_ha": -0.3122699027007898,
+      "nuclear_repulsion_ha": 2.11670884368,
+      "vqe_energy_ha": -0.312269902700788
+    },
+    {
+      "bond_length_angstrom": 0.3,
+      "hf_energy_ha": -0.5938277585357272,
+      "fci_energy_ha": -0.6018037107656871,
+      "nuclear_repulsion_ha": 1.7639240364000002,
+      "vqe_energy_ha": -0.6018037107656862
+    },
+    {
+      "bond_length_angstrom": 0.35,
+      "hf_energy_ha": -0.7804549020715259,
+      "fci_energy_ha": -0.7892693924044136,
+      "nuclear_repulsion_ha": 1.5119348883428574,
+      "vqe_energy_ha": -0.7892693924044119
+    }
+  ]
 }
 ```
 
 #### POST /api/quantum/simulate
 
-- Body: `{ "molecule": "...", "bond_length": number, "shots": number, "noise": number }`
-- Returns energy, exact energy, error in mHa, and convergence history.
-- Long runs may return `202` with a job id.
+- Body: `{ "molecule": "H2", "bond_length": number, "shots": null | number, "noise": number,
+  "seed": number, "maxiter": number }`. `bond_length_angstrom` is accepted as an alias for
+  `bond_length`. `seed` (0..4294967295), `maxiter` (1..10000) and `shots` (positive integer or
+  null) are optional; bad values answer `422` with `invalid_seed` / `invalid_maxiter` /
+  `invalid_shots`.
+- **A real VQE runs in this request**: a fixed `2 x [Ry on each qubit, then a CX ladder]` ansatz
+  minimised by SciPy COBYLA (3 restarts, default 150 evaluations per restart) against the
+  artifact's Pauli terms through a Qiskit estimator. `shots: null` (the default) selects the
+  noiseless statevector estimator; a number runs the shot-based Aer estimator with that many
+  shots per evaluation, and `seed` reaches it as `backend_options={"seed_simulator": ...}` as
+  well as seeding the restarts, so a fixed seed reproduces a run exactly.
+- The exact reference is a live NumPy diagonalisation of the same stored Pauli terms plus the
+  nuclear repulsion, cross-checked against the artifact's stored `fci_energy_ha` (1e-8 Ha) before
+  the run starts; `hf_energy_ha` and `fci_energy_ha` themselves are read from the artifact.
+- `within_chemical_accuracy` (1.6 mHa) is reported only for noiseless runs: a shot-based
+  estimate is a statistic, so it returns `null` there and the error is reported as measured.
+- **The budget is spelled out:** `n_restarts`, `maxiter_per_restart` and
+  `total_energy_evaluations` (equal to the backward-compatible `iterations`), so the run is read
+  as "3 restarts × 150 evaluations", not an opaque total.
+- **Variational guard, scoped to noiseless statevector runs:** if such a run reports an energy
+  more than 1e-9 Ha below the exact ground energy, the answer is a `500` with code
+  `variational_principle_violation` and **no result fields** — a physically impossible result is
+  refused, not served. A shot run is **not** refused for sitting below exact on sampling noise;
+  it reports that noise instead (next bullet).
+- **No winner's curse in a shot run's headline number.** The optimiser picks its best restart by
+  the *noiseless* expectation at each parameter set, but the reported `vqe_energy_ha` is a
+  **fresh re-evaluation at the final optimal parameters**, not the minimum of the noisy
+  optimisation trace. Its uncertainty is reported as `vqe_energy_std_ha` (in Ha) with
+  `vqe_energy_uncertainty_method` naming the source: `estimator_variance_metadata` (the
+  estimator's own variance metadata, `sqrt(variance / shots)`) or `seed_reevaluation_10x` (the
+  mean and sample standard deviation of 10 re-evaluations with different sampler seeds). That
+  is sampling error, not a hardware result, and the `note` says so.
+- Every run carries `classical_simulation: true` and says in `note` that no quantum hardware was
+  used and no quantum advantage is claimed.
+- The stored grid has no point at every requested bond length, so an off-grid request snaps to
+  the nearest stored point (never interpolated; an exact tie breaks toward the shorter bond
+  length) and the response discloses both values: `bond_length_requested_angstrom` and
+  `bond_length_used_angstrom`, with `bond_length_is_exact` telling them apart — plus the same
+  three facts as `requested_bond_length`, `used_bond_length` and `snapped`. `bond_length`
+  echoes the point the energies came from, because the panel badges it next to them.
 
 Example request:
 ```http
@@ -131,46 +259,139 @@ Content-Type: application/json
 {
   "molecule": "H2",
   "bond_length": 0.74,
-  "shots": 1024,
-  "noise": 0.0
+  "shots": null,
+  "noise": 0.0,
+  "seed": 7
 }
 ```
 
-- No shot or noise simulation is performed in this build. `shots` and `noise` are accepted for the
-  contract and echoed back, but the response says so rather than implying a noisy run happened.
+- `noise` is accepted for the contract and echoed back, but no noise model is applied and the
+  response says so. The sampling noise that `shots` implies **is** real: the optimiser sees that
+  many shots per energy evaluation.
 
 Example response without the offline artifact (standard error shape, `503`):
 ```json
 {
   "error": {
     "code": "hamiltonian_unavailable",
-    "message": "h2_sto3g.json has not been generated, so no H2 curve is available. Run scripts/precompute_hamiltonians.ipynb in Colab or WSL and save the result into app/data/hamiltonians/. This endpoint reports the curve as unavailable rather than showing placeholder numbers."
+    "message": "h2_sto3g.json has not been generated, so no H2 energy is available. Run scripts/precompute_hamiltonians.ipynb in Colab or WSL and save the result into app/data/hamiltonians/. This endpoint reports the energy as unavailable rather than showing placeholder numbers."
   }
 }
 ```
 
-Example response once the artifact exists but the curve is not yet wired to it:
+Example response for an on-grid request (0.74 Å is the stored default; `convergence_history_ha`
+shows the first 4 of its 450 entries — every number is copied verbatim from the live response):
 ```json
 {
   "molecule": "H2",
+  "status": "computed",
+  "units": "hartree",
   "bond_length": 0.74,
-  "exact_energy_ha": null,
-  "vqe_energy_ha": null,
-  "error_mha": null,
-  "convergence_history_ha": null,
-  "shots": 1024,
+  "requested_bond_length": 0.74,
+  "used_bond_length": 0.74,
+  "snapped": false,
+  "bond_length_requested_angstrom": 0.74,
+  "bond_length_used_angstrom": 0.74,
+  "bond_length_is_exact": true,
+  "hf_energy_ha": -1.1167593073964255,
+  "fci_energy_ha": -1.1372838344885028,
+  "nuclear_repulsion_ha": 0.7151043390810812,
+  "exact_energy_ha": -1.137283834488502,
+  "vqe_energy_ha": -1.137283834480475,
+  "error_vs_exact_ha": 8.026912468039882e-12,
+  "abs_error_vs_exact_ha": 8.026912468039882e-12,
+  "error_mha": 8.026912468039882e-09,
+  "vqe_energy_std_ha": null,
+  "vqe_energy_uncertainty_method": null,
+  "within_chemical_accuracy": true,
+  "chemical_accuracy_threshold_ha": 0.0016,
+  "noiseless": true,
+  "iterations": 450,
+  "total_energy_evaluations": 450,
+  "n_restarts": 3,
+  "maxiter_per_restart": 150,
+  "convergence_history_ha": [
+    -1.0646672340673422,
+    -1.0949480951674475,
+    -1.035481833399952,
+    -1.027491460831999
+  ],
+  "seed": 7,
+  "seed_simulator_applied": false,
+  "maxiter": 150,
+  "restarts": 3,
+  "ansatz": "2 x [Ry on each of 2 qubit(s), then a CX ladder]",
+  "optimizer": "COBYLA",
+  "shots": null,
   "noise": 0.0,
-  "estimator_class_name": null,
-  "status": "placeholder",
-  "note": "h2_sto3g.json is present but this endpoint is not yet wired to its format, so the H2 curve cannot be drawn in this build."
+  "estimator_backend": "statevector",
+  "estimator_class_name": "StatevectorEstimator",
+  "classical_simulation": true,
+  "note": "Real VQE run at 0.74 A: the requested 0.74 A is on the stored grid in h2_sto3g.json. 450 COBYLA energy evaluations over 3 restarts of a fixed 2 x [Ry on each of 2 qubit(s), then a CX ladder] ansatz, statevector estimator, seed 7 (noiseless statevector run). Classical simulation only: no quantum hardware was used, no quantum advantage is claimed. The exact reference diagonalises the same stored Pauli terms with NumPy; hf_energy_ha and fci_energy_ha are read from h2_sto3g.json. No noise model is applied."
 }
 ```
 
-Example queued response:
+Example response for an off-grid request (0.741 Å, snapped and disclosed; `convergence_history_ha`
+truncated the same way):
 ```json
 {
-  "job_id": "abc-123",
-  "status": "queued"
+  "molecule": "H2",
+  "status": "computed",
+  "units": "hartree",
+  "bond_length": 0.74,
+  "requested_bond_length": 0.741,
+  "used_bond_length": 0.74,
+  "snapped": true,
+  "bond_length_requested_angstrom": 0.741,
+  "bond_length_used_angstrom": 0.74,
+  "bond_length_is_exact": false,
+  "hf_energy_ha": -1.1167593073964255,
+  "fci_energy_ha": -1.1372838344885028,
+  "nuclear_repulsion_ha": 0.7151043390810812,
+  "exact_energy_ha": -1.137283834488502,
+  "vqe_energy_ha": -1.137283834480475,
+  "error_vs_exact_ha": 8.026912468039882e-12,
+  "abs_error_vs_exact_ha": 8.026912468039882e-12,
+  "error_mha": 8.026912468039882e-09,
+  "vqe_energy_std_ha": null,
+  "vqe_energy_uncertainty_method": null,
+  "within_chemical_accuracy": true,
+  "chemical_accuracy_threshold_ha": 0.0016,
+  "noiseless": true,
+  "iterations": 450,
+  "total_energy_evaluations": 450,
+  "n_restarts": 3,
+  "maxiter_per_restart": 150,
+  "convergence_history_ha": [
+    -1.0646672340673422,
+    -1.0949480951674475,
+    -1.035481833399952,
+    -1.027491460831999
+  ],
+  "seed": 7,
+  "seed_simulator_applied": false,
+  "maxiter": 150,
+  "restarts": 3,
+  "ansatz": "2 x [Ry on each of 2 qubit(s), then a CX ladder]",
+  "optimizer": "COBYLA",
+  "shots": null,
+  "noise": 0.0,
+  "estimator_backend": "statevector",
+  "estimator_class_name": "StatevectorEstimator",
+  "classical_simulation": true,
+  "note": "0.741 A is not on the stored grid in h2_sto3g.json; answered with the nearest stored point at 0.74 A instead, never interpolated (an exact tie breaks toward the shorter bond length). 450 COBYLA energy evaluations over 3 restarts of a fixed 2 x [Ry on each of 2 qubit(s), then a CX ladder] ansatz, statevector estimator, seed 7 (noiseless statevector run). Classical simulation only: no quantum hardware was used, no quantum advantage is claimed. The exact reference diagonalises the same stored Pauli terms with NumPy; hf_energy_ha and fci_energy_ha are read from h2_sto3g.json. No noise model is applied."
+}
+```
+
+Example response when the variational guard trips (captured through the real router with a
+deliberately broken optimiser stub — the guard test in `tests/test_endpoints.py` produces it the
+same way; a genuine run has never triggered it):
+```json
+{
+  "error": {
+    "code": "variational_principle_violation",
+    "message": "the run at 0.74 A reported VQE energy -1.187283834489 Ha, below the exact -1.137283834489 Ha by 5.000e-02 Ha -- more than the 1e-09 Ha rounding allowance the variational principle allows. The result is refused instead of reported."
+  }
 }
 ```
 
@@ -214,7 +435,8 @@ Content-Type: application/json
 ```
 
 The H2 numbers were previously derived from the deleted placeholder matrix, so they are withheld
-until the real artifact is wired in.
+until the resource estimator is wired to the artifact's Pauli terms. With the artifact present
+(the normal case in a checkout) the response is:
 
 Example response:
 ```json
@@ -226,7 +448,7 @@ Example response:
   "estimated_circuit_depth": null,
   "artifact": "h2_sto3g.json",
   "status": "placeholder",
-  "note": "h2_sto3g.json has not been generated, so no H2 curve is available. Run scripts/precompute_hamiltonians.ipynb in Colab or WSL and save the result into app/data/hamiltonians/. This endpoint reports the curve as unavailable rather than showing placeholder numbers."
+  "note": "h2_sto3g.json is present but this endpoint is not yet wired to its format, so the H2 resource estimate cannot be produced in this build."
 }
 ```
 

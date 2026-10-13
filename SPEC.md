@@ -42,7 +42,7 @@ DATA_SOURCES.md  .gitignore  requirements.txt
 ## 5. API contract (stable; frontend builds against this)
 - `GET /health`
 - `GET /api/quantum/h2-curve`: VQE and exact energies across bond lengths
-- `POST /api/quantum/simulate` `{molecule, bond_length, shots, noise}`: returns energy, exact energy, error (mHa), convergence history
+- `POST /api/quantum/simulate` `{molecule, bond_length (or bond_length_angstrom), shots (null = statevector), noise, seed, maxiter}`: runs a real VQE (fixed Ry ansatz, SciPy COBYLA, Qiskit estimator) against the artifact's Pauli terms; returns energies, error (mHa), iterations, convergence history and seed
 - `GET /api/quantum/hadamard-demo`
 - `POST /api/quantum/resources` `{molecule}`: qubits, Hamiltonian terms, rough circuit size
 - `GET /api/molecule/search?q=`, `POST /api/molecule/properties`
@@ -72,7 +72,10 @@ When the frontend is deployed separately (for example on Vercel), it targets thi
 - Bond lengths that are not on that grid: `POST /api/quantum/simulate` **snaps to the nearest stored point and discloses it**. It does not reject the request, and it **never interpolates an energy** — a number is only ever reported for a separation that was actually computed offline, because an interpolated curve between computed points would be our own construction rather than a result. The response echoes both values so a snapped answer cannot be read as an exact one: `bond_length_requested_angstrom`, `bond_length_used_angstrom`, `bond_length_is_exact` (`true` only when the two are equal), and a `note` naming the stored point that answered. An exact tie (equidistant stored points) resolves to the **shorter** bond length. `GET /api/quantum/h2-curve` is unaffected: it reports the stored points themselves.
 - Molecules in scope: H2 (core), LiH, active-space H2O. Larger drugs (for example aspirin): classical full-molecule result plus the resource estimator, no live VQE.
 - Accuracy target: **noiseless** VQE within 1.6 mHa of exact for H2. Noisy and low-shot modes are expected to show larger error. Report the achieved error honestly and never force a pass.
-- VQE energy must never be below the exact energy (variational principle). Reference check: H2 in STO-3G near 0.74 angstrom is about -1.137 Ha.
+- VQE energy must never be below the exact energy (variational principle). Reference check: H2 in STO-3G near 0.74 angstrom is about -1.137 Ha. A run that reports below the exact energy by more than 1e-9 Ha is **refused** with a `variational_principle_violation` error instead of being served.
+- **Scope of that guard: noiseless statevector runs only.** A single shot-based estimate is a statistic and can legitimately sit below the exact energy on sampling noise, so a shot run is never refused for that reason. It instead reports its uncertainty as `vqe_energy_std_ha` and keeps `within_chemical_accuracy` as `null` (chemical accuracy remains a noiseless claim). A statevector run keeps the strict 1e-9 Ha guard.
+- **No winner's curse in a shot run's headline number.** The optimiser is judged by the noiseless expectation at each restart's parameters, but the reported `vqe_energy_ha` for a shot run is a **fresh re-evaluation at the final optimal parameters**, not the minimum of the noisy optimisation trace (which is biased downward by selection). Its uncertainty is the estimator's own variance metadata when the backend reports it, otherwise the mean and sample standard deviation of 10 re-evaluations at those parameters with different sampler seeds; the response names the method used (`vqe_energy_uncertainty_method`).
+- **The optimiser budget is spelled out.** A run reports `n_restarts`, `maxiter_per_restart` and `total_energy_evaluations` alongside the backward-compatible `iterations` (equal to `total_energy_evaluations`), so "450 iterations" reads as 3 restarts x 150 evaluations per restart rather than an opaque total.
 
 ## 7. Data rules
 - External calls: 10 s timeout, retries, cache-first, per-source TTLs. PubChem/RCSB: finite TTL. Lipinski by SMILES: effectively infinite. Complexes: immutable.

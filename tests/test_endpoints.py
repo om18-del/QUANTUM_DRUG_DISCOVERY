@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.molecule_simulation import METHOD_CODES
-from app.services.quantum_service import H2_HAMILTONIAN_ARTIFACT
+from app.services.quantum_service import H2_HAMILTONIAN_ARTIFACT, h2_artifact_path
 from tests.availability import (
     require_live_network,
     require_rdkit_descriptors,
@@ -64,20 +64,104 @@ def test_h2_curve_reports_unavailable_when_artifact_is_missing(tmp_path, monkeyp
     assert "curve" in message.lower()
 
 
-def test_h2_curve_is_placeholder_when_artifact_exists_but_is_not_wired(
-    tmp_path, monkeypatch
-) -> None:
-    (tmp_path / H2_HAMILTONIAN_ARTIFACT).write_text("{}", encoding="utf-8")
-    _point_quantum_service_at(tmp_path, monkeypatch)
+def _require_checked_in_artifact() -> None:
+    """The computed tests read the real artifact; skip, never fake, without it."""
+    if not h2_artifact_path().is_file():
+        pytest.skip(f"{H2_HAMILTONIAN_ARTIFACT} is not present in this checkout")
+
+
+def test_h2_curve_is_computed_from_the_checked_in_artifact() -> None:
+    """The curve must be the stored 58-point grid, not a placeholder."""
+    _require_checked_in_artifact()
 
     response = client.get("/api/quantum/h2-curve")
 
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "placeholder"
-    assert data["bond_lengths_angstrom"] == []
-    assert data["exact_energies_ha"] == []
-    assert data["note"]
+    assert data["status"] == "computed"
+    assert data["artifact"] == H2_HAMILTONIAN_ARTIFACT
+    assert data["units"] == "hartree"
+
+    # Documented provenance, checked against what the artifact actually declares.
+    metadata = data["metadata"]
+    assert data["basis"] == metadata["basis"] == "STO-3G"
+    assert metadata["mapping"] == "parity"
+    assert metadata["two_qubit_reduction"] is True
+    assert metadata["mapping_note"] == "parity mapping with two-qubit reduction"
+    assert metadata["n_qubits"] == 2
+    assert metadata["source"] == "precomputed offline with PySCF + qiskit-nature"
+
+    lengths = data["bond_lengths_angstrom"]
+    hf = data["hf_energies_ha"]
+    exact = data["exact_energies_ha"]
+    vqe = data["vqe_energies_ha"]
+    nuclear = data["nuclear_repulsion_energies_ha"]
+    errors = data["vqe_error_mha"]
+    assert data["point_count"] == len(lengths) == 58
+    assert len(hf) == len(exact) == len(vqe) == len(nuclear) == len(errors) == 58
+    assert lengths == sorted(lengths), "the grid must ascend for the canvas x-axis"
+    assert all(n > 0.0 for n in nuclear), "nuclear repulsion must be positive"
+    assert data["convention"] and "nuclear_repulsion_ha" in data["convention"]
+
+    # The same data point by point: for every bond length the endpoint answers
+    # HF, FCI and the nuclear repulsion individually, not only as zipped arrays.
+    points = data["points"]
+    assert len(points) == 58
+    for i, point in enumerate(points):
+        assert point["bond_length_angstrom"] == lengths[i]
+        assert point["hf_energy_ha"] == hf[i]
+        assert point["fci_energy_ha"] == exact[i]
+        assert point["nuclear_repulsion_ha"] == nuclear[i]
+        assert point["vqe_energy_ha"] == vqe[i]
+
+    # The UI default sits on the grid and holds the published equilibrium values.
+    index = lengths.index(0.74)
+    assert exact[index] == pytest.approx(-1.1372838, abs=1e-6)
+    assert vqe[index] == pytest.approx(exact[index], abs=1e-6)
+    # Stored HF and FCI are TOTAL energies (electronic plus nuclear repulsion),
+    # so the known equilibrium references must match without any adjustment.
+    assert hf[index] == pytest.approx(-1.1167593, abs=1e-6)
+    assert nuclear[index] == pytest.approx(0.7151043, abs=1e-6)
+
+    for bond, h, e, v, d in zip(lengths, hf, exact, vqe, errors):
+        assert h >= e - 1e-9, f"HF reference below FCI at {bond} A"
+        assert v >= e - 1e-9, f"variational energy below FCI at {bond} A"
+        assert abs(d) <= 1.6, f"{abs(d):.6f} mHa exceeds chemical accuracy at {bond} A"
+
+    assert H2_HAMILTONIAN_ARTIFACT in data["note"]
+    assert "No optimisation, shots or noise" in data["note"]
+
+
+def test_h2_curve_reports_a_malformed_point_as_a_fault(tmp_path, monkeypatch) -> None:
+    """A point that is present but wrong is a fault (500), never an empty curve."""
+    (tmp_path / H2_HAMILTONIAN_ARTIFACT).write_text(
+        json.dumps({"molecule": "H2", "points": [{"bond_length_angstrom": 0.74}]}),
+        encoding="utf-8",
+    )
+    _point_quantum_service_at(tmp_path, monkeypatch)
+
+    response = client.get("/api/quantum/h2-curve")
+
+    data = _assert_error_shape(response, "simulation_error", 500)
+    assert "H2 curve computation failed" in data["error"]["message"]
+    assert "point 0 is missing" in data["error"]["message"]
+
+
+def test_h2_curve_with_an_empty_grid_reports_unavailable(tmp_path, monkeypatch) -> None:
+    """A file with no stored points has no point to serve: the expected 503."""
+    (tmp_path / H2_HAMILTONIAN_ARTIFACT).write_text(
+        json.dumps({"molecule": "H2", "point_count": 0, "points": []}),
+        encoding="utf-8",
+    )
+    _point_quantum_service_at(tmp_path, monkeypatch)
+
+    response = client.get("/api/quantum/h2-curve")
+
+    data = _assert_error_shape(response, "hamiltonian_unavailable", 503)
+    message = data["error"]["message"]
+    assert H2_HAMILTONIAN_ARTIFACT in message
+    assert "no stored bond lengths" in message
+    assert "no H2 curve is available" in message
 
 
 def test_hadamard_demo() -> None:
@@ -120,29 +204,391 @@ def test_simulate_h2_reports_unavailable_without_the_artifact(tmp_path, monkeypa
     assert "curve" not in message.lower(), message
 
 
-def test_simulate_h2_is_placeholder_when_artifact_exists_but_is_not_wired(
-    tmp_path, monkeypatch
-) -> None:
-    (tmp_path / H2_HAMILTONIAN_ARTIFACT).write_text("{}", encoding="utf-8")
+def _post_simulate(
+    bond_length: float,
+    shots: int | None = None,
+    noise: float = 0.0,
+    seed: int | None = 7,
+    maxiter: int | None = None,
+) -> dict:
+    """POST /api/quantum/simulate; default is the noiseless statevector path."""
+    payload = {"bond_length": bond_length, "shots": shots, "noise": noise, "seed": seed}
+    if maxiter is not None:
+        payload["maxiter"] = maxiter
+    response = client.post("/api/quantum/simulate", content=json.dumps(payload))
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_simulate_h2_runs_a_real_vqe_at_the_stored_default_bond_length() -> None:
+    """A fixed-seed noiseless run lands on -1.137 Ha within chemical accuracy."""
+    _require_checked_in_artifact()
+
+    data = _post_simulate(0.74)
+
+    assert data["status"] == "computed"
+    assert data["molecule"] == "H2"
+    assert data["units"] == "hartree"
+    # Snap-and-disclose: an on-grid answer says so under both field spellings
+    # (SPEC.md section 6 names the *_angstrom trio; the task names the other).
+    assert data["bond_length"] == pytest.approx(0.74, abs=1e-9)
+    assert data["requested_bond_length"] == pytest.approx(0.74, abs=1e-12)
+    assert data["used_bond_length"] == pytest.approx(0.74, abs=1e-9)
+    assert data["snapped"] is False
+    assert data["bond_length_requested_angstrom"] == pytest.approx(0.74, abs=1e-12)
+    assert data["bond_length_used_angstrom"] == pytest.approx(0.74, abs=1e-9)
+    assert data["bond_length_is_exact"] is True
+
+    # The run's result, the exact reference, and the artifact's stored numbers.
+    assert data["exact_energy_ha"] == pytest.approx(-1.1372838, abs=1e-6)
+    assert data["vqe_energy_ha"] == pytest.approx(-1.1372838, abs=1.6e-3)
+    assert data["vqe_energy_ha"] >= data["exact_energy_ha"] - 1e-9
+    # The exact reference is a live NumPy diagonalisation of the same Pauli
+    # terms; it must land on the artifact's stored FCI value.
+    assert data["exact_energy_ha"] == pytest.approx(data["fci_energy_ha"], abs=1e-8)
+    assert data["hf_energy_ha"] == pytest.approx(-1.1167593, abs=1e-6)
+    assert data["nuclear_repulsion_ha"] == pytest.approx(0.7151043, abs=1e-6)
+    assert abs(data["error_mha"]) <= 1.6
+    assert data["error_vs_exact_ha"] == pytest.approx(
+        data["vqe_energy_ha"] - data["exact_energy_ha"], abs=1e-15
+    )
+    assert data["abs_error_vs_exact_ha"] == pytest.approx(
+        abs(data["error_vs_exact_ha"]), abs=1e-15
+    )
+    assert data["within_chemical_accuracy"] is True
+    assert data["chemical_accuracy_threshold_ha"] == pytest.approx(1.6e-3)
+    assert data["noiseless"] is True
+
+    # A real optimiser run, not a stored number.
+    assert data["iterations"] > 1
+    assert len(data["convergence_history_ha"]) == data["iterations"]
+    assert data["seed"] == 7
+    assert data["maxiter"] >= 1
+    assert data["restarts"] >= 1
+    # The budget is spelled out, and the backward-compatible `iterations` equals
+    # the total across all restarts.
+    assert data["n_restarts"] == data["restarts"] == 3
+    assert data["maxiter_per_restart"] == data["maxiter"]
+    assert data["total_energy_evaluations"] == data["iterations"]
+    # A noiseless run has no sampling uncertainty to report.
+    assert data["vqe_energy_std_ha"] is None
+    assert data["vqe_energy_uncertainty_method"] is None
+    assert data["shots"] is None
+    assert data["noise"] == 0.0
+    assert data["estimator_backend"] == "statevector"
+    assert data["estimator_class_name"] == "StatevectorEstimator"
+    assert data["optimizer"] == "COBYLA"
+    assert "Ry" in data["ansatz"]
+    assert data["classical_simulation"] is True
+    # The response must say what the run was, and claim no quantum advantage.
+    assert "Classical simulation" in data["note"]
+    assert "no quantum advantage is claimed" in data["note"]
+    # The rule behind the shared sentence still holds: this endpoint reports an
+    # energy, and must not describe itself in terms of the curve.
+    assert "curve" not in data["note"].lower(), data["note"]
+
+
+def test_simulate_h2_snaps_to_the_nearest_stored_point_and_discloses_it() -> None:
+    """0.741 A is off the grid; the answer comes from 0.74 A and says so."""
+    _require_checked_in_artifact()
+
+    snapped = _post_simulate(0.741)
+    on_grid = _post_simulate(0.74)
+
+    assert snapped["status"] == "computed"
+    # Both spellings of the disclosure, as specified by the task and SPEC sec. 6.
+    assert snapped["requested_bond_length"] == pytest.approx(0.741, abs=1e-12)
+    assert snapped["used_bond_length"] == pytest.approx(0.74, abs=1e-9)
+    assert snapped["snapped"] is True
+    assert snapped["bond_length_requested_angstrom"] == pytest.approx(0.741, abs=1e-12)
+    assert snapped["bond_length_used_angstrom"] == pytest.approx(0.74, abs=1e-9)
+    assert snapped["bond_length"] == pytest.approx(0.74, abs=1e-9)
+    assert snapped["bond_length_is_exact"] is False
+    assert "not on the stored grid" in snapped["note"]
+    assert "0.74" in snapped["note"]
+    # Same stored point and same seed, so the same run: nothing was interpolated.
+    assert snapped["exact_energy_ha"] == pytest.approx(on_grid["exact_energy_ha"], abs=1e-12)
+    assert snapped["vqe_energy_ha"] == pytest.approx(on_grid["vqe_energy_ha"], abs=1e-12)
+    assert snapped["convergence_history_ha"] == on_grid["convergence_history_ha"]
+
+
+def test_simulate_h2_tie_between_two_stored_points_prefers_the_shorter_bond_length() -> None:
+    """0.745 A sits between 0.74 and 0.75 A; the documented rule picks 0.74."""
+    _require_checked_in_artifact()
+
+    data = _post_simulate(0.745)
+
+    assert data["bond_length_used_angstrom"] == pytest.approx(0.74, abs=1e-9)
+    assert data["bond_length_is_exact"] is False
+    assert "shorter bond length" in data["note"]
+
+
+def test_simulate_h2_reports_a_malformed_artifact(tmp_path, monkeypatch) -> None:
+    """A present-but-unusable file is a fault (500), never placeholder energies."""
+    (tmp_path / H2_HAMILTONIAN_ARTIFACT).write_text(
+        json.dumps({"molecule": "H2", "points": [{"bond_length_angstrom": 0.74}]}),
+        encoding="utf-8",
+    )
     _point_quantum_service_at(tmp_path, monkeypatch)
 
     response = client.post(
         "/api/quantum/simulate",
-        content=json.dumps({"bond_length": 0.74, "shots": 1024, "noise": 0.0}),
+        content=json.dumps({"bond_length": 0.74, "noise": 0.0}),
     )
 
-    assert response.status_code == 200
+    data = _assert_error_shape(response, "simulation_error", 500)
+    assert "H2 simulation failed" in data["error"]["message"]
+    assert "point 0 is missing" in data["error"]["message"]
+
+
+def test_simulate_with_an_empty_grid_reports_unavailable(tmp_path, monkeypatch) -> None:
+    """No stored points means no point can answer: the expected 503."""
+    (tmp_path / H2_HAMILTONIAN_ARTIFACT).write_text(
+        json.dumps({"molecule": "H2", "points": []}), encoding="utf-8"
+    )
+    _point_quantum_service_at(tmp_path, monkeypatch)
+
+    response = client.post(
+        "/api/quantum/simulate",
+        content=json.dumps({"bond_length": 0.74}),
+    )
+
+    data = _assert_error_shape(response, "hamiltonian_unavailable", 503)
+    message = data["error"]["message"]
+    assert H2_HAMILTONIAN_ARTIFACT in message
+    assert "no stored bond lengths" in message
+    assert "no H2 energy is available" in message
+
+
+def test_simulate_refuses_a_result_below_the_exact_energy(tmp_path, monkeypatch) -> None:
+    """Variational guard: an energy below exact is a bug, so it is refused.
+
+    ``_run_vqe`` is replaced with a runner that reports 50 mHa below the true
+    minimum; the endpoint must answer an error envelope and ship no result field.
+    """
+    _require_checked_in_artifact()
+
+    def broken_run(pauli_terms, n_qubits, *, seed, maxiter, shots):
+        from app.core.exact import pauli_sum_ground_energy
+
+        return {
+            "vqe_energy_ha": pauli_sum_ground_energy(pauli_terms, n_qubits) - 0.05,
+            "iterations": 1,
+            "convergence_history_ha": [-999.0],
+            "estimator_backend": "statevector",
+            "estimator_class_name": "StatevectorEstimator",
+            "ansatz": "1 x [Ry on each of 2 qubit(s), then a CX ladder]",
+            "optimizer": "COBYLA",
+            "restarts": 1,
+            "maxiter": maxiter or 1,
+            "seed": seed,
+            "seed_simulator_applied": False,
+            "optimal_parameters": [],
+        }
+
+    monkeypatch.setattr("app.services.quantum_service._run_vqe", broken_run)
+
+    response = client.post(
+        "/api/quantum/simulate",
+        content=json.dumps({"bond_length": 0.74}),
+    )
+
+    data = _assert_error_shape(response, "variational_principle_violation", 500)
+    assert "variational principle" in data["error"]["message"]
+    assert set(data) == {"error"}, "a refused run must not ship any result fields"
+
+
+def _shot_run_stub(below_exact_by: float):
+    """A shot-based runner reporting an estimate this far below the exact energy."""
+
+    def runner(pauli_terms, n_qubits, *, seed, maxiter, shots):
+        from app.core.exact import pauli_sum_ground_energy
+
+        return {
+            "vqe_energy_ha": pauli_sum_ground_energy(pauli_terms, n_qubits) - below_exact_by,
+            "vqe_energy_std_ha": 0.01,
+            "vqe_energy_uncertainty_method": "estimator_variance_metadata",
+            "iterations": 1,
+            "total_energy_evaluations": 1,
+            "n_restarts": 1,
+            "maxiter_per_restart": 1,
+            "convergence_history_ha": [-999.0],
+            "estimator_backend": "aer",
+            "estimator_class_name": "Estimator",
+            "ansatz": "1 x [Ry on each of 2 qubit(s), then a CX ladder]",
+            "optimizer": "COBYLA",
+            "restarts": 1,
+            "maxiter": 1,
+            "seed": seed,
+            "seed_simulator_applied": True,
+            "optimal_parameters": [],
+        }
+
+    return runner
+
+
+def test_simulate_shot_run_below_exact_is_not_refused(monkeypatch) -> None:
+    """A shot estimate may sit below exact on sampling noise: served, not 500.
+
+    The variational guard is scoped to noiseless statevector runs (SPEC.md section
+    6), so a shot run that lands below exact reports its uncertainty instead of
+    being refused.
+    """
+    _require_checked_in_artifact()
+    monkeypatch.setattr(
+        "app.services.quantum_service._run_vqe", _shot_run_stub(below_exact_by=0.05)
+    )
+
+    response = client.post(
+        "/api/quantum/simulate",
+        content=json.dumps({"bond_length": 0.74, "shots": 1024}),
+    )
+
+    assert response.status_code == 200, response.text
     data = response.json()
-    assert data["status"] == "placeholder"
-    assert data["exact_energy_ha"] is None
-    assert data["vqe_energy_ha"] is None
-    assert data["shots"] == 1024
-    assert data["noise"] == 0.0
-    assert data["convergence_history_ha"] is None
-    # Same rule on the other branch: a present-but-unwired artifact still must
-    # not describe this endpoint in terms of the curve.
-    assert data["note"]
-    assert "curve" not in data["note"].lower(), data["note"]
+    assert data["status"] == "computed"
+    assert data["vqe_energy_ha"] < data["exact_energy_ha"], "the stub is below exact"
+    assert data["vqe_energy_std_ha"] == pytest.approx(0.01)
+    assert data["vqe_energy_uncertainty_method"] == "estimator_variance_metadata"
+    assert data["within_chemical_accuracy"] is None
+
+
+def test_shot_run_reports_a_fresh_reevaluation_not_the_trace_minimum(monkeypatch) -> None:
+    """The headline shot energy is a fresh evaluation, not the biased trace minimum."""
+    import app.core.vqe as vqe_core
+
+    from app.services.quantum_service import _run_vqe
+
+    def biased_objective(estimator, circuit, observable, parameters, *, run_options=None):
+        return -99.0
+
+    def fresh_estimate(estimator, circuit, observable, parameters, *, run_options=None):
+        return {"value": -1.5, "std": 0.02}
+
+    monkeypatch.setattr(vqe_core, "evaluate_energy", biased_objective)
+    monkeypatch.setattr(vqe_core, "evaluate_energy_with_uncertainty", fresh_estimate)
+
+    run = _run_vqe({"ZZ": 1.0}, 2, seed=1, maxiter=3, shots=1024)
+
+    assert min(run["convergence_history_ha"]) == pytest.approx(-99.0)
+    assert run["vqe_energy_ha"] == pytest.approx(-1.5), "not a fresh re-evaluation"
+    assert run["vqe_energy_std_ha"] == pytest.approx(0.02)
+    assert run["vqe_energy_uncertainty_method"] == "estimator_variance_metadata"
+
+
+def test_shot_run_falls_back_to_seed_reevaluation_without_metadata(monkeypatch) -> None:
+    """With no variance metadata, 10 re-evaluations with fresh seeds give mean and std."""
+    import app.core.vqe as vqe_core
+
+    from app.services.quantum_service import _run_vqe
+
+    real = vqe_core.evaluate_energy_with_uncertainty
+
+    def strip_std(estimator, circuit, observable, parameters, *, run_options=None):
+        result = dict(real(estimator, circuit, observable, parameters, run_options=run_options))
+        result["std"] = None
+        return result
+
+    monkeypatch.setattr(vqe_core, "evaluate_energy_with_uncertainty", strip_std)
+
+    run = _run_vqe({"ZZ": 1.0, "IX": 1.0}, 2, seed=3, maxiter=5, shots=512)
+
+    assert run["vqe_energy_uncertainty_method"] == "seed_reevaluation_10x"
+    assert run["vqe_energy_std_ha"] is not None
+    assert run["vqe_energy_std_ha"] >= 0.0
+
+
+def test_simulate_is_reproducible_with_a_fixed_seed() -> None:
+    """Same seed, same run: byte-identical convergence history."""
+    _require_checked_in_artifact()
+
+    first = _post_simulate(0.74, seed=7)
+    second = _post_simulate(0.74, seed=7)
+
+    assert first["iterations"] == second["iterations"]
+    assert first["convergence_history_ha"] == second["convergence_history_ha"]
+    assert first["vqe_energy_ha"] == second["vqe_energy_ha"]
+
+
+def test_simulate_runs_without_a_seed() -> None:
+    """The seed is optional; a null seed still produces a complete run."""
+    _require_checked_in_artifact()
+
+    response = client.post(
+        "/api/quantum/simulate",
+        content=json.dumps({"bond_length": 0.74, "seed": None}),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["status"] == "computed"
+    assert data["seed"] is None
+    assert data["noiseless"] is True
+    assert data["iterations"] > 1
+    assert data["vqe_energy_ha"] >= data["exact_energy_ha"] - 1e-9
+
+
+def test_simulate_shot_based_run_discloses_sampling_not_a_noiseless_pass() -> None:
+    """A shots run uses the Aer estimator and cannot claim a noiseless pass."""
+    _require_checked_in_artifact()
+
+    data = _post_simulate(0.74, shots=512, seed=7, maxiter=60)
+
+    assert data["status"] == "computed"
+    assert data["shots"] == 512
+    assert data["noiseless"] is False
+    assert data["estimator_backend"] == "aer"
+    assert data["estimator_class_name"] == "Estimator"
+    assert data["seed"] == 7
+    assert data["seed_simulator_applied"] is True, "the seed must reach seed_simulator"
+    # Chemical accuracy is a noiseless claim; a sampled run reports the number
+    # and the threshold, but not a pass/fail flag.
+    assert data["within_chemical_accuracy"] is None
+    # A shot-based estimate is a statistic, so it is NOT held to the variational
+    # floor; instead it reports its own sampling uncertainty and the method used.
+    assert data["vqe_energy_std_ha"] is not None
+    assert data["vqe_energy_std_ha"] >= 0.0
+    assert data["vqe_energy_uncertainty_method"] in {
+        "estimator_variance_metadata",
+        "seed_reevaluation_10x",
+    }
+    assert data["n_restarts"] == data["restarts"]
+    assert data["maxiter_per_restart"] == data["maxiter"]
+    assert data["total_energy_evaluations"] == data["iterations"]
+    assert len(data["convergence_history_ha"]) == data["iterations"]
+    assert "shots per evaluation" in data["note"]
+    assert "sampling error" in data["note"]
+
+
+def test_simulate_rejects_bad_optional_fields() -> None:
+    """seed, maxiter and shots are validated before any run starts."""
+    cases = [
+        ({"bond_length": 0.74, "seed": "abc"}, "invalid_seed"),
+        ({"bond_length": 0.74, "seed": -1}, "invalid_seed"),
+        ({"bond_length": 0.74, "maxiter": 0}, "invalid_maxiter"),
+        ({"bond_length": 0.74, "maxiter": 2.5}, "invalid_maxiter"),
+        ({"bond_length": 0.74, "shots": 0}, "invalid_shots"),
+        ({"bond_length": 0.74, "shots": "many"}, "invalid_shots"),
+    ]
+    for payload, code in cases:
+        response = client.post("/api/quantum/simulate", content=json.dumps(payload))
+        _assert_error_shape(response, code, 422)
+
+
+def test_simulate_accepts_bond_length_angstrom_alias() -> None:
+    """The artifact-shaped input name is accepted alongside ``bond_length``."""
+    _require_checked_in_artifact()
+
+    response = client.post(
+        "/api/quantum/simulate",
+        content=json.dumps({"bond_length_angstrom": 0.74, "seed": 7}),
+    )
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["status"] == "computed"
+    assert data["requested_bond_length"] == pytest.approx(0.74, abs=1e-12)
+    assert data["used_bond_length"] == pytest.approx(0.74, abs=1e-9)
 
 
 def test_simulate_unsupported_molecule_is_placeholder() -> None:

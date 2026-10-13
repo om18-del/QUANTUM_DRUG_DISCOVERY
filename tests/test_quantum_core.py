@@ -10,17 +10,22 @@ Qubit-ordering convention (matches Qiskit, asserted in
 to right and the RIGHTMOST character acts on qubit 0, i.e. ``"IX"`` means X on
 qubit 0 and ``"XI"`` means X on qubit 1.
 
-These fixtures must never be reachable from the API. ``app/core`` is imported
-only by this file; ``test_app_core_is_not_imported_by_routers_or_services`` and
-``test_app_core_is_absent_from_sys_modules_after_importing_the_app`` prove that
-both statically and in a fresh interpreter.
+These fixtures must never be reachable from the API *at import time*.
+``app/core`` may only be pulled in by lazy imports inside functions (that is how
+the quantum endpoints reach the exact solver and the VQE machinery);
+``test_app_core_is_not_imported_eagerly_by_routers_or_services`` checks that
+statically -- module-level imports forbidden, function-level imports allowed --
+and ``test_app_core_is_absent_from_sys_modules_after_importing_the_app``
+re-checks it dynamically in a fresh interpreter.
 
-The real H2 Hamiltonian is a separate, still-absent offline artifact
+Every Hamiltonian below is a synthetic fixture written for this file; the real
+H2 Hamiltonian lives in the offline artifact
 (``app/data/hamiltonians/h2_sto3g.json``) and is not referenced here.
 """
 
 from __future__ import annotations
 
+import ast
 import importlib
 import math
 import subprocess
@@ -406,20 +411,54 @@ def test_vqe_optimum_is_a_lower_bound_on_the_fixture() -> None:
         assert result["vqe_energy_ha"] >= expected - EXACT_EPSILON_HA, label
 
 
+# -------------------------------------------------------------------------------
+# app.core must never load at API import time. Lazy imports inside the service
+# functions are allowed (that is how the endpoints reach the exact solver and the
+# VQE loop); an import at module level -- including inside a top-level if/try --
+# is what both tests below forbid.
 # ---------------------------------------------------------------------------
-# The fixtures are synthetic: nothing in app.core may be reachable from the API
-# ---------------------------------------------------------------------------
-def test_app_core_is_not_imported_by_routers_or_services() -> None:
-    """Static check: no API module may import app.core."""
+def test_app_core_is_not_imported_eagerly_by_routers_or_services() -> None:
+    """Static check: no API module may import app.core at module import time.
+
+    Walks the AST instead of matching raw lines, so an import nested inside a
+    function (a lazy, per-request import) passes while the same import at module
+    level fails. Module-level ``if``/``try`` blocks still count as eager: their
+    code runs when the module is imported.
+    """
     offenders: list[str] = []
     for directory in ("app/routers", "app/services"):
         for path in sorted((REPO_ROOT / directory).glob("*.py")):
-            text = path.read_text(encoding="utf-8")
-            for line in text.splitlines():
-                stripped = line.strip()
-                if stripped.startswith(("from app.core", "import app.core")):
-                    offenders.append(f"{path.relative_to(REPO_ROOT)}: {stripped}")
-    assert not offenders, f"API modules must not import app.core: {offenders}"
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            parents = {
+                child: parent
+                for parent in ast.walk(tree)
+                for child in ast.iter_child_nodes(parent)
+            }
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                    continue
+                if isinstance(node, ast.Import):
+                    modules = [alias.name for alias in node.names]
+                else:
+                    modules = [node.module or ""]
+                if not any(m == "app.core" or m.startswith("app.core.") for m in modules):
+                    continue
+                # Find the nearest enclosing scope: a function body means the
+                # import runs per call (lazy, allowed); anything else -- module,
+                # class body, top-level if/try -- runs at import time (forbidden).
+                ancestor = parents.get(node)
+                while ancestor is not None and not isinstance(
+                    ancestor, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+                ):
+                    ancestor = parents.get(ancestor)
+                if ancestor is None:
+                    offenders.append(
+                        f"{path.relative_to(REPO_ROOT)}:{node.lineno}: {ast.unparse(node)}"
+                    )
+    assert not offenders, (
+        "API modules must not import app.core at module import time (lazy imports "
+        f"inside functions are fine): {offenders}"
+    )
 
 
 def test_app_core_is_absent_from_sys_modules_after_importing_the_app() -> None:

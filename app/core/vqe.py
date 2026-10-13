@@ -2,12 +2,16 @@
 
 Scope, stated plainly because it bounds what this module proves:
 
-* It is a **core algorithm module, not a wired-up feature**. It is imported by
-  ``tests/test_quantum_core.py`` only; no API route or service imports
-  ``app.core``, and the test suite enforces that.
-* There are **no H2 coefficients in this file**. The Hamiltonians it is exercised
-  on are synthetic fixtures defined inside the test file, chosen because their
-  ground energies are known analytically.
+* It is a **core algorithm module**. ``app.services.quantum_service`` reaches it
+  through *lazy* imports inside functions, so starting the app does not load it;
+  the test suite enforces both halves of that rule: no module-level import of
+  ``app.core`` anywhere in ``app/routers`` or ``app/services`` (function-level
+  imports are allowed), and ``app.core`` absent from ``sys.modules`` after
+  ``import app.main`` in a fresh interpreter.
+* There are **no H2 coefficients in this file**. The Hamiltonians the unit tests
+  exercise are synthetic fixtures defined inside the test file, chosen because
+  their ground energies are known analytically; the API path passes in Pauli
+  terms read from the offline artifact instead.
 * The estimator is a real Qiskit primitive, used noiselessly, and the exact
   reference comes from ``app.core.exact`` -- which assembles the Pauli sum with
   NumPy alone, so the comparison is not circular.
@@ -51,6 +55,7 @@ from __future__ import annotations
 
 import importlib
 import logging
+import math
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -190,24 +195,114 @@ def _extract_expectation(result: Any) -> float:
     return float(flat[0])
 
 
-def evaluate_energy(
+def _extract_variance(result: Any) -> float | None:
+    """**Per-shot** variance of one V1 estimate, or ``None`` when none is reported.
+
+    The V1 Aer estimator reports ``variance`` per observable in ``result.metadata``
+    (probed in this pinned environment: a 1024-shot ``<ZZ+IX+XI>`` estimate carried
+    ``metadata=[{"shots": 1024, "variance": 1.875...}]``). That number is the
+    variance of a single shot's value, NOT of the mean: 40 independent 1024-shot
+    estimates of the same expectation had sample std 0.052, while
+    ``sqrt(variance)`` was 1.39 and ``sqrt(variance/shots)`` was 0.043. The
+    estimate's standard error is therefore ``sqrt(variance / shots)`` and the
+    caller does that division (see ``evaluate_energy_with_uncertainty``). The
+    analytic statevector estimator reports neither variance nor std, which is the
+    signal that there is no sampling uncertainty to quote -- an exact value is not
+    a statistic.
+    """
+    metadata = getattr(result, "metadata", None)
+    if not isinstance(metadata, Sequence) or isinstance(metadata, (str, bytes)) or not metadata:
+        return None
+    entry = metadata[0]
+    if not isinstance(entry, Mapping):
+        return None
+    raw = entry.get("variance")
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return None
+    if not np.isfinite(float(raw)) or float(raw) < 0.0:
+        return None
+    return float(raw)
+
+
+def evaluate_energy_with_uncertainty(
     estimator: Any,
     circuit: Any,
     observable: Any,
     parameters: Sequence[float] | NDArray,
-) -> float:
-    """One energy evaluation: <psi(theta)|H|psi(theta)> for a single parameter set."""
+    *,
+    run_options: Mapping[str, Any] | None = None,
+) -> dict[str, float | None]:
+    """One energy evaluation plus its sampling uncertainty, when the estimator has one.
+
+    Returns ``{"value": float, "std": float | None}``, where ``std`` is the standard
+    error of the estimate (the standard deviation of the reported *mean*, not of a
+    single shot). For the V1 Aer estimator that is ``sqrt(variance / shots)`` from
+    its per-observable ``variance`` metadata and the ``shots`` in ``run_options``;
+    a V2 shot-based estimator's ``stds`` already is the estimate's standard error.
+    An exact estimator reports ``None`` because an analytic expectation value
+    carries no sampling error.
+
+    ``run_options`` are forwarded verbatim to the V1 primitive's ``run`` call, so a
+    shot-based run can ask for a concrete sample count (for example
+    ``{"shots": 1024}`` on the Aer estimator). The exact V2/statevector estimators
+    accept no per-run options, so passing any is an error rather than a silently
+    ignored keyword.
+    """
     values = np.asarray(parameters, dtype=float).reshape(-1)
 
     from qiskit.primitives import BaseEstimatorV2
 
     if isinstance(estimator, BaseEstimatorV2):
+        if run_options:
+            raise ValueError(
+                "The statevector estimator takes no per-run options, got "
+                f"{sorted(run_options)}; shots belong on the shot-based aer backend"
+            )
         job = estimator.run([(circuit, observable, values)])
-        return _extract_expectation(job.result()[0])
+        result = job.result()[0]
+        std: float | None = None
+        stds = getattr(getattr(result, "data", None), "stds", None)
+        if stds is not None:
+            flat = np.atleast_1d(np.asarray(stds, dtype=float)).reshape(-1)
+            if flat.size == 1 and np.isfinite(flat[0]) and flat[0] >= 0.0:
+                std = float(flat[0])
+        evs = np.atleast_1d(np.asarray(result.data.evs)).reshape(-1)
+        if evs.size != 1:
+            raise RuntimeError(f"Expected exactly one expectation value, got {evs.size}")
+        return {"value": float(evs[0]), "std": std}
 
     # V1 primitives take parallel lists of circuits, observables and parameter sets.
-    job = estimator.run([circuit], [observable], [values])
-    return _extract_expectation(job.result())
+    options = dict(run_options or {})
+    job = estimator.run([circuit], [observable], [values], **options)
+    result = job.result()
+    variance = _extract_variance(result)
+    std: float | None = None
+    if variance is not None:
+        shots = options.get("shots")
+        divisor = float(shots) if isinstance(shots, (int, float)) and shots else 1.0
+        std = math.sqrt(variance / divisor)
+    return {"value": _extract_expectation(result), "std": std}
+
+
+def evaluate_energy(
+    estimator: Any,
+    circuit: Any,
+    observable: Any,
+    parameters: Sequence[float] | NDArray,
+    *,
+    run_options: Mapping[str, Any] | None = None,
+) -> float:
+    """One energy evaluation: <psi(theta)|H|psi(theta)> for a single parameter set.
+
+    The point-estimate half of ``evaluate_energy_with_uncertainty``; use that one
+    when the estimate's sampling uncertainty matters (a shot-based estimate) and
+    this one when only the value matters.
+    """
+    return float(
+        evaluate_energy_with_uncertainty(
+            estimator, circuit, observable, parameters, run_options=run_options
+        )["value"]
+    )
 
 
 def default_layers(n_qubits: int) -> int:
@@ -342,7 +437,9 @@ def vqe_ground_energy(
         ),
         "note": (
             "Variational upper bound on the ground energy of the given Pauli sum. "
-            "Synthetic test fixture only: no API route calls this, and no chemistry "
-            "data is loaded."
+            "This function is exercised on synthetic test fixtures; the API's VQE "
+            "loop lives in app.services.quantum_service, which builds its own COBYLA "
+            "run from these primitives and passes in Pauli terms read from the "
+            "offline artifact."
         ),
     }

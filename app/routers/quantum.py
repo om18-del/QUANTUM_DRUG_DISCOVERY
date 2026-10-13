@@ -7,6 +7,7 @@ from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 
 from app.services.quantum_service import (
+    VariationalPrincipleViolation,
     compute_h2_curve,
     compute_h2_simulate,
     compute_hadamard_demo,
@@ -32,6 +33,25 @@ def get_h2_curve() -> QuantumResponse:
         return _error_response("simulation_error", f"H2 curve computation failed: {exc}", 500)
 
 
+def _parse_optional_int(body: dict, field: str, code: str, low: int, high: int):
+    """An optional integer in [low, high], ``None`` when absent, else an error."""
+    value = body.get(field)
+    if value is None:
+        return None, None
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or int(value) != value
+        or not (low <= int(value) <= high)
+    ):
+        return None, _error_response(
+            code,
+            f"Field '{field}' must be an integer between {low} and {high}",
+            422,
+        )
+    return int(value), None
+
+
 @router.post("/simulate", response_model=None)
 async def post_h2_simulate(request: Request) -> QuantumResponse:
     try:
@@ -42,24 +62,63 @@ async def post_h2_simulate(request: Request) -> QuantumResponse:
     if not isinstance(body, dict):
         return _error_response("invalid_body", "Request body must be a JSON object", 400)
 
-    bond_length = body.get("bond_length")
+    # Both spellings are accepted; the artifact-shaped name wins when both appear.
+    bond_length = (
+        body["bond_length_angstrom"] if "bond_length_angstrom" in body else body.get("bond_length")
+    )
     shots = body.get("shots")
     noise = body.get("noise")
     molecule = body.get("molecule")
 
     if molecule is not None and not isinstance(molecule, str):
         return _error_response("invalid_molecule", "Field 'molecule' must be a string", 422)
-    if bond_length is None or not isinstance(bond_length, (int, float)):
-        return _error_response("invalid_bond_length", "Field 'bond_length' is required and must be a number", 422)
+    if bond_length is None or not isinstance(bond_length, (int, float)) or isinstance(bond_length, bool):
+        return _error_response(
+            "invalid_bond_length",
+            "Field 'bond_length' (or 'bond_length_angstrom') is required and must be a number",
+            422,
+        )
     bond_length = float(bond_length)
     if not (0.0 <= bond_length <= 5.0):
         return _error_response("invalid_bond_length", "bond_length must be between 0.0 and 5.0", 422)
 
-    shots = int(shots) if isinstance(shots, (int, float)) else 1024
-    noise = float(noise) if isinstance(noise, (int, float)) else 0.0
+    # shots: absent or null means the noiseless statevector run (SPEC/task);
+    # a number is the per-evaluation sample count of the shot-based estimator.
+    if shots is not None and (
+        isinstance(shots, bool)
+        or not isinstance(shots, (int, float))
+        or int(shots) != shots
+        or int(shots) < 1
+    ):
+        return _error_response(
+            "invalid_shots",
+            "Field 'shots' must be a positive integer, or null for a noiseless statevector run",
+            422,
+        )
+    shots = int(shots) if shots is not None else None
+
+    seed, error = _parse_optional_int(body, "seed", "invalid_seed", 0, 2**32 - 1)
+    if error is not None:
+        return error
+    maxiter, error = _parse_optional_int(body, "maxiter", "invalid_maxiter", 1, 10000)
+    if error is not None:
+        return error
+
+    noise = float(noise) if isinstance(noise, (int, float)) and not isinstance(noise, bool) else 0.0
 
     try:
-        return compute_h2_simulate(bond_length=bond_length, shots=shots, noise=noise, molecule=molecule)
+        return compute_h2_simulate(
+            bond_length=bond_length,
+            shots=shots,
+            noise=noise,
+            molecule=molecule,
+            seed=seed,
+            maxiter=maxiter,
+        )
+    except VariationalPrincipleViolation as exc:
+        # The optimiser broke the variational principle: refuse the result with
+        # its own code instead of reporting a physically impossible energy.
+        return _error_response("variational_principle_violation", str(exc), 500)
     except FileNotFoundError as exc:
         return _error_response("hamiltonian_unavailable", str(exc), 503)
     except Exception as exc:

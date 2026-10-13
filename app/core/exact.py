@@ -13,9 +13,12 @@ cancel out and the comparison would prove nothing.
 
 The artifact readers at the bottom take an already-parsed JSON object, never a
 path, so nothing here touches the filesystem and the caller decides which file to
-read. Nothing in this module is reachable from an API route
-(``tests/test_quantum_core.py`` enforces that), and the readers are exercised only
-on synthetic fixtures defined inside ``tests/test_h2_artifact_reader.py``.
+read. ``app.services.quantum_service`` reaches this module through a lazy import
+inside its simulate handler, never at module import time, and
+``tests/test_quantum_core.py`` enforces exactly that: no eager ``app.core`` import
+in any API module. The readers themselves are unit-tested on synthetic fixtures
+defined inside ``tests/test_h2_artifact_reader.py``, independent of the real
+artifact.
 """
 
 from __future__ import annotations

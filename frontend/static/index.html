@@ -77,10 +77,14 @@
             </label>
             <label class="field">
               <span>
-                Shots
-                <small id="shots-hint" class="field-hint">measurement repetitions · 1–100000 · higher is slower</small>
+                Run mode
+                <small id="run-mode-hint" class="field-hint">exact statevector is noiseless · shots carry sampling error</small>
               </span>
-              <input id="sim-shots" name="shots" type="number" min="1" max="100000" value="1024" aria-describedby="shots-hint" />
+              <select id="sim-run-mode" name="run_mode" aria-describedby="run-mode-hint">
+                <option value="statevector" selected>Exact statevector (no shots)</option>
+                <option value="1024">1024 shots</option>
+                <option value="8192">8192 shots</option>
+              </select>
             </label>
             <label class="field">
               <span>
@@ -94,6 +98,7 @@
               <button id="simulate-run" class="btn btn-primary" type="button">Run simulation</button>
             </div>
           </form>
+          <p class="disclaimer" id="simulate-disclaimer">Classical simulation of a 2-qubit problem. No quantum hardware was used. No quantum advantage is claimed.</p>
           <div id="simulate-status" class="status-line"></div>
           <div id="simulate-result" class="result-card" hidden></div>
         </section>

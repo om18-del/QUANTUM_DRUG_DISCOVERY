@@ -1,8 +1,10 @@
 """Tests for ``scripts/validate_hamiltonian_file.py``.
 
 The real artifact (``app/data/hamiltonians/h2_sto3g.json``) is generated offline
-and is not in the repository, so these tests exercise the validator against small
-synthetic payloads written to a temporary directory. The synthetic curve is a
+in Colab or WSL and is committed; ``tests/test_h2_hamiltonian_artifact.py`` checks
+that file. These tests instead exercise the validator against small synthetic
+payloads written to a temporary directory, because most of what matters here is
+what the validator rejects. The synthetic curve is a
 parabola with its minimum at 0.74 A, which is now on the 58-point grid (0.20 to
 3.00 in 0.05 steps, 57 uniform points, plus 0.74 A -- the UI default).
 
