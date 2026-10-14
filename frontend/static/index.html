@@ -110,15 +110,27 @@
         </section>
 
         <section class="card dashboard">
-          <h3>Resource estimate</h3>
+          <h3>Resource estimator</h3>
+          <p class="muted">What would this molecule need? Counted from its formula for the STO-3G basis — no PySCF,
+            no simulation, and no Pauli-term guesswork.</p>
           <form id="resources-form" class="form">
             <label class="field">
-              <span>Molecule</span>
-              <input id="resource-molecule" name="molecule" type="text" value="H2" maxlength="100" />
+              <span>
+                Formula
+                <small class="field-hint">plain formula, e.g. H2O or C9H8O4</small>
+              </span>
+              <input id="resource-formula" name="formula" type="text" placeholder="e.g. H2O or C9H8O4" maxlength="100" value="H2O" />
+            </label>
+            <label class="field">
+              <span>
+                Active orbitals
+                <small class="field-hint">optional · also estimate the k-orbital active space</small>
+              </span>
+              <input id="resource-active-orbitals" name="active_orbitals" type="number" min="1" step="1" placeholder="optional" />
             </label>
             <div class="field">
               <span></span>
-              <button id="resource-run" class="btn btn-primary" type="button">Estimate</button>
+              <button id="resource-run" class="btn btn-primary" type="button">Estimate resources</button>
             </div>
           </form>
           <div id="resource-status" class="status-line"></div>
@@ -311,6 +323,6 @@
     <span id="foot-meta"></span>
   </footer>
 
-  <script type="module" src="/app/app.js?v=11"></script>
+  <script type="module" src="/app/app.js?v=12"></script>
 </body>
 </html>

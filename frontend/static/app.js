@@ -113,20 +113,6 @@ function unavailableBlock(shortText, longNote) {
 }
 
 /**
- * The resource estimate and the energy curve are different things, but both are
- * withheld for the same missing artifact, and the backend note for one talks
- * about the other. Drop the curve-specific sentences so the Resource panel
- * never mentions the curve; what is left is the instruction that still applies.
- */
-function withoutCurveSentences(text) {
-  return String(text || "")
-    .split(/(?<=[.!?])\s+/)
-    .filter((s) => !/\bcurve\b/i.test(s))
-    .join(" ")
-    .trim();
-}
-
-/**
  * Short state for a status line. The full note or error is rendered inside the
  * result card, so repeating it here would show the same message twice.
  */
@@ -147,11 +133,12 @@ function shortErrorState(error) {
 }
 
 /* Short, plain "not available" wording. Every panel uses this same sentence
-   style so an unavailable panel looks the same as the others. */
+   style so an unavailable panel looks the same as the others. The resource
+   estimator needs no entry here: it counts from the formula and never depends
+   on an artifact being present. */
 const NOT_AVAILABLE = {
   curve: "The H2 energy curve has not been generated yet.",
   simulate: "H2 simulation is not available yet.",
-  resources: "The resource estimate is not available yet.",
 };
 
 /** Numbers arrive as JSON numbers or numeric strings; never print "null". */
@@ -810,45 +797,122 @@ async function runSimulate() {
   }
 }
 
+/* ------------------------------------------------------- Resource estimator --- */
+
+/* The resource estimator answers "what would this molecule need?" from a formula
+   alone, and every figure it returns is tagged in the backend's `tags` dict as
+   exact (a closed-form count) or estimated (a judgement or a rough limit). The
+   table below prints those tags rather than inventing its own wording. */
+
+const RESOURCE_FIXED_NOTE = "Computed by formula for the STO-3G basis. No simulation was run for this molecule.";
+
+function tagChip(tag) {
+  if (!tag) return "";
+  return `<span class="chip ${escapeHtml(tag)}">${escapeHtml(tag)}</span>`;
+}
+
+function quantityRows(pairs) {
+  return pairs
+    .map(([label, value, tag]) => `
+      <tr>
+        <td>${escapeHtml(label)}</td>
+        <td class="numeric">${escapeHtml(value == null ? "—" : String(value))}</td>
+        <td>${tagChip(tag)}</td>
+      </tr>
+    `)
+    .join("");
+}
+
+function resourceTableHtml(title, pairs, note) {
+  return `
+    <div class="section-label">${escapeHtml(title)}</div>
+    <div class="table-scroll">
+      <table class="data">
+        <thead><tr><th>quantity</th><th>value</th><th>tag</th></tr></thead>
+        <tbody>${quantityRows(pairs)}</tbody>
+      </table>
+    </div>
+    ${note ? `<div class="method-note">${escapeHtml(note)}</div>` : ""}
+  `;
+}
+
+/** Verdicts read "simulable in app" rather than "simulable_in_app". */
+function readableVerdict(verdict) {
+  const text = String(verdict || "").trim();
+  if (!text) return "—";
+  return text.replace(/_/g, " ");
+}
+
+function renderResources(body, status, el) {
+  const tags = body.tags || {};
+  const feas = body.feasibility || {};
+  const subject = body.subject || {};
+  const active = body.active_space;
+
+  const pairs = [
+    ["spatial orbitals", body.n_spatial_orbitals, tags.n_spatial_orbitals],
+    ["electrons", body.n_electrons, tags.n_electrons],
+    ["full qubits", body.n_qubits_full, tags.n_qubits_full],
+    ["reduced qubits", body.n_qubits_after_parity_reduction, tags.n_qubits_after_parity_reduction],
+    ["statevector memory", body.statevector_memory_human, tags.statevector_memory_human],
+    ["verdict", readableVerdict(feas.verdict), tags["feasibility.verdict"]],
+  ];
+
+  /* The active-space block is opt-in and describes a smaller problem the caller
+     cut down by hand, so every row in it is an estimate by definition. */
+  const activePairs = active
+    ? [
+        ["active orbitals", active.active_orbitals, "estimated"],
+        ["active qubits", active.n_qubits, "estimated"],
+        ["reduced qubits", active.n_qubits_after_parity_reduction, "estimated"],
+        ["statevector memory", active.statevector_memory_human, "estimated"],
+        ["verdict", readableVerdict((active.feasibility || {}).verdict), "estimated"],
+      ]
+    : [];
+
+  setStatus(status, "ok", "counted by formula · " + readableVerdict(feas.verdict));
+  el.innerHTML = `
+    <div class="computed-note">status: ${escapeHtml(body.status)}</div>
+    ${resourceTableHtml(`${subject.formula || ""} · ${body.basis || ""}`, pairs, feas.reason)}
+    <p class="muted">${escapeHtml(RESOURCE_FIXED_NOTE)}</p>
+    ${active ? resourceTableHtml(`active space (k = ${active.active_orbitals} orbitals)`, activePairs, active.note) : ""}
+    ${jsonBlock(body)}
+  `;
+}
+
 async function runResources() {
-  const molecule = $("#resource-molecule").value;
+  const formulaEl = $("#resource-formula");
+  const activeEl = $("#resource-active-orbitals");
   const status = $("#resource-status");
   const detail = $("#resource-detail");
   const el = $("#resource-result");
   el.hidden = false;
-  setStatus(status, "placeholder", "estimating…");
+  if (detail) detail.innerHTML = "";
 
-  try {
-    const { body } = await apiFetch("/quantum/resources", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ molecule }),
+  const formula = formulaEl && formulaEl.value ? formulaEl.value.trim() : "";
+  const activeText = activeEl && activeEl.value ? String(activeEl.value).trim() : "";
+
+  if (!formula) {
+    setStatus(status, "err", "enter a formula");
+    el.innerHTML = errorNote({
+      code: "missing_formula",
+      message: "Enter a formula such as H2O or C9H8O4 — the estimator counts from the formula, so it cannot guess one.",
     });
+    return;
+  }
 
-    if (body.status !== "computed") {
-      // The estimate and the energy curve are withheld for the same missing
-      // artifact, but the Resource panel must not talk about the curve.
-      setStatus(status, "placeholder", "not available");
-      if (detail) detail.innerHTML = detailNote("Why this is unavailable", withoutCurveSentences(body.note));
-      el.innerHTML = unavailableBlock(NOT_AVAILABLE.resources, null) + jsonBlock(body);
-      return;
-    }
+  // The active-orbital count is optional and only sent when it is a positive
+  // whole number, so an empty box means "full molecule" rather than k = 0.
+  const params = new URLSearchParams({ formula });
+  const active = parseInt(activeText, 10);
+  if (activeText !== "" && isFinite(active) && active > 0) {
+    params.set("active_orbitals", String(active));
+  }
 
-    if (detail) detail.innerHTML = "";
-    setStatus(status, "ok", "estimated");
-    el.innerHTML = `
-      <div class="computed-note">status: ${body.status}</div>
-      <dl>
-        <dt>molecule</dt><dd>${escapeHtml(body.molecule)}</dd>
-        <dt>qubits</dt><dd>${body.n_qubits ?? body.qubits ?? "—"}</dd>
-        <dt>hamiltonian dim</dt><dd>${body.hamiltonian_dim ?? "—"}</dd>
-        <dt>hamiltonian terms</dt><dd>${body.hamiltonian_terms ?? "—"}</dd>
-        <dt>estimated gates</dt><dd>${body.estimated_circuit_gates ?? "—"}</dd>
-        <dt>estimated depth</dt><dd>${body.estimated_circuit_depth ?? "—"}</dd>
-        <dt>note</dt><dd>${escapeHtml(body.note || "—")}</dd>
-      </dl>
-      ${jsonBlock(body)}
-    `;
+  setStatus(status, "placeholder", "counting…");
+  try {
+    const { body } = await apiFetch("/quantum/resources?" + params.toString());
+    renderResources(body, status, el);
   } catch (e) {
     setStatus(status, "err", shortErrorState(e && e.error ? e.error : e));
     el.innerHTML = errorNote(e && e.error ? e.error : e);
@@ -961,10 +1025,44 @@ async function runProperties() {
       </dl>
       ${jsonBlock(body)}
     `);
+    // The formula is already on screen, so it costs one request to say what the
+    // Quantum Lab would make of it. The line reports itself; a failure to count
+    // (an element outside the estimator's table) is stated, not swallowed.
+    if (body.status === "computed" && body.formula) {
+      el.appendChild(quantumFeasibilityLine(body.formula));
+    }
   } catch (e) {
     setStatus(status, "err", shortErrorState(e && e.error ? e.error : e));
     el.innerHTML = errorNote(e && e.error ? e.error : e);
   }
+}
+
+/**
+ * One line for the Molecule Explorer: what the Quantum Lab's STO-3G resource
+ * estimator says about a molecule whose formula is already shown. Nothing is
+ * simulated for it and no number is invented here -- the counts come from the
+ * same endpoint the Resource estimator panel uses.
+ */
+function quantumFeasibilityLine(formula) {
+  const line = document.createElement("div");
+  line.className = "method-note";
+  line.id = "props-quantum-feasibility";
+  line.textContent = "Quantum Lab feasibility: counting…";
+  (async () => {
+    try {
+      const { body } = await apiFetch("/quantum/resources?formula=" + encodeURIComponent(formula));
+      const feas = body.feasibility || {};
+      line.textContent =
+        `Quantum Lab feasibility: ${body.n_spatial_orbitals} spatial orbitals, ` +
+        `${body.n_qubits_full} full / ${body.n_qubits_after_parity_reduction} reduced qubits — ` +
+        `${readableVerdict(feas.verdict)} (STO-3G, counted by formula; no simulation was run).`;
+    } catch (e) {
+      const err = e && e.error ? e.error : e;
+      line.textContent =
+        `Quantum Lab feasibility: not available (${err.code || "error"}: ${err.message || ""}).`;
+    }
+  })();
+  return line;
 }
 
 function verdictClass(verdict) {

@@ -511,37 +511,247 @@ Example response:
 }
 ```
 
-#### POST /api/quantum/resources
+#### GET /api/quantum/resources?formula=&molecule=&active_orbitals=
 
-- Body: `{ "molecule": "..." }`
-- Returns qubits, Hamiltonian terms, and a rough circuit size estimate.
+- **What would this molecule need?** Counted from its formula for the STO-3G minimal basis. No
+  Hamiltonian is built, nothing is diagonalised and no artifact is read, so this endpoint answers
+  whether or not the Hamiltonian files are on disk — unlike the curve and simulate endpoints.
+- Query parameters: `formula` (a plain molecular formula, e.g. `H2O` or `C9H8O4`), `molecule` (a
+  registry key — `h2` or `lih`, read as the formula `H2` or `LiH`), and the optional
+  `active_orbitals` (integer k, `1..n_spatial_orbitals`, which also estimates the k-orbital
+  active-space problem). If both `formula` and `molecule` are given, `formula` wins and
+  `requested.note` says so.
+- **With no parameters it answers a usage description** instead of guessing a molecule: `status:
+  "usage"`, the request shape, the supported element list and the per-atom STO-3G function
+  counts.
+- The counts, and the rule behind each one:
+  - `n_spatial_orbitals`: one contracted basis function per occupied atomic shell — H and He 1,
+    Li–Ne 5, Na–Ar 9 — summed over the formula.
+  - `n_electrons`: the sum of the neutral atomic numbers. **No charge input is taken**, so this is
+    the neutral count; spin and charge are not modelled (`notes.spin_and_charge`) and an odd count
+    (open shell) additionally reports `notes.open_shell`.
+  - `n_qubits_full = 2 * n_spatial_orbitals` (one qubit per spin orbital).
+  - `n_qubits_after_parity_reduction = n_qubits_full - 2` for the parity mapping with two-qubit
+    reduction (`parity_reduction_removed_qubits` is that fixed 2).
+  - `statevector_memory_bytes = 2 ** n_qubits_after_parity_reduction * 16` (complex128) with
+    `statevector_memory_human` as KB/MB/GB/TB, or `"more than 10^15 bytes"` above 1.126e15 bytes.
+  - `hilbert_dimension` is returned **as a string**: 2**144 would lose precision as a JSON number
+    in a browser, and the integer memory figure beside it has the same caveat for very large
+    molecules.
+- `feasibility` judges the reduced qubit count against `interactive_cap_qubits: 8` (this app's own
+  limit — a **project choice**) and `laptop_statevector_ceiling_qubits: 25` (rough), giving a
+  `verdict` of `simulable_in_app`, `precompute_only` or `beyond_classical_simulation` with a
+  one-sentence `reason`. These are project limits and rough estimates, not measured hardware or
+  algorithm bounds. `simulable_in_app` means the size fits this app's budget — **not** that a
+  simulation exists for that molecule, because H2 is the only molecule with a VQE ansatz.
+- `tags` maps each figure to `exact` (computed by a closed-form rule in code) or `estimated` (a
+  judgement or a rough limit). The feasibility verdict, the laptop ceiling and everything in the
+  active-space block are `estimated`.
+- **No Pauli-term count and no circuit size is reported**, because a formula cannot give either.
+  The only statement about term growth is the asymptotic "roughly N^4 in the number of orbitals",
+  an order-of-magnitude note in `notes.pauli_term_scaling`.
+- Errors, standard shape, `422`: `invalid_formula` (not element-symbol-and-count text),
+  `unsupported_element` (names the supported symbols), `invalid_active_orbitals` (not an integer
+  in `1..n_spatial_orbitals`) and `missing_formula` (`active_orbitals` with no subject).
+- `POST /api/quantum/resources` remains as a body-shaped alias: `{ "formula": ... }`,
+  `{ "molecule": ... }` (including the older `{"molecule": "C9H8O4"}`, read as a formula) and
+  `{ "active_orbitals": k }` all answer through the same code path, and an empty body returns the
+  same usage description as the parameterless GET.
 
 Example request:
 ```http
-POST /api/quantum/resources HTTP/1.1
+GET /api/quantum/resources?formula=H2O HTTP/1.1
 Host: 127.0.0.1:8000
-Content-Type: application/json
+```
 
+Example response (live capture; H2O, 7 STO-3G spatial orbitals):
+```json
 {
-  "molecule": "H2"
+  "status": "computed",
+  "subject": {
+    "input": "H2O",
+    "formula": "H2O",
+    "atom_counts": {
+      "H": 2,
+      "O": 1
+    }
+  },
+  "basis": "STO-3G",
+  "method": "computed_by_formula",
+  "method_note": "Computed by formula for the STO-3G basis (no PySCF run, no simulation). The classical simulation limits below are project limits and rough estimates.",
+  "n_spatial_orbitals": 7,
+  "basis_functions_per_element": {
+    "H": 2,
+    "O": 5
+  },
+  "n_electrons": 10,
+  "n_qubits_full": 14,
+  "n_qubits_after_parity_reduction": 12,
+  "parity_reduction_removed_qubits": 2,
+  "statevector_memory_bytes": 65536,
+  "statevector_memory_human": "64.0 KB",
+  "hilbert_dimension": "4096",
+  "statevector_basis": "n_qubits_after_parity_reduction",
+  "bytes_per_amplitude": 16,
+  "feasibility": {
+    "based_on_qubits": 12,
+    "interactive_cap_qubits": 8,
+    "laptop_statevector_ceiling_qubits": 25,
+    "verdict": "precompute_only",
+    "reason": "12 qubits after the parity two-qubit reduction is above this app's 8-qubit interactive limit but inside a rough 25-qubit laptop statevector ceiling, so the numbers would have to be precomputed offline and served as an artifact.",
+    "note": "These limits are project choices and rough estimates, not measured hardware or algorithm bounds."
+  },
+  "active_space": null,
+  "tags": {
+    "n_spatial_orbitals": "exact",
+    "n_electrons": "exact",
+    "n_qubits_full": "exact",
+    "n_qubits_after_parity_reduction": "exact",
+    "parity_reduction_removed_qubits": "exact",
+    "statevector_memory_bytes": "exact",
+    "statevector_memory_human": "exact",
+    "hilbert_dimension": "exact",
+    "feasibility.interactive_cap_qubits": "exact",
+    "feasibility.laptop_statevector_ceiling_qubits": "estimated",
+    "feasibility.verdict": "estimated",
+    "notes.pauli_term_scaling": "estimated"
+  },
+  "notes": {
+    "spin_and_charge": "Spin and charge are not modelled: the electron count is the sum of the neutral atomic numbers in the formula, and no charge input is taken.",
+    "method": "Computed by formula for the STO-3G basis, not by running PySCF: no Hamiltonian was built and no diagonalisation was performed for this molecule.",
+    "pauli_term_scaling": "Pauli term growth is roughly N^4 in the number of orbitals (estimated, order-of-magnitude). No specific term count is computed here, because a term count depends on the mapped Hamiltonian, which this estimator does not build.",
+    "limits": "The classical simulation limits in 'feasibility' are project limits and rough estimates; they are not measured hardware or algorithm bounds.",
+    "interactive_limit": "Above 8 qubits this app refuses a dense diagonalisation (too_many_qubits), and H2 is the only molecule with a VQE ansatz, so 'simulable_in_app' means the size fits the app's budget rather than that a simulation exists for this molecule.",
+    "verification": "The STO-3G orbital counts are counted from the minimal-basis rule, not read from a basis file, and have not been cross-checked against PySCF on this host."
+  },
+  "verified_against_pyscf": false,
+  "classical_simulation": true,
+  "requested": {
+    "formula": "H2O",
+    "molecule": null,
+    "resolved_formula": "H2O",
+    "resolved_from": "formula"
+  }
 }
 ```
 
-The H2 numbers were previously derived from the deleted placeholder matrix, so they are withheld
-until the resource estimator is wired to the artifact's Pauli terms. With the artifact present
-(the normal case in a checkout) the response is:
+The five documented examples, as this endpoint returns them (live capture):
+
+| `?formula=` | spatial orbitals | electrons | full qubits | reduced qubits | statevector memory | verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| `H2` | 2 | 2 | 4 | 2 | 64 bytes | `simulable_in_app` |
+| `LiH` | 6 | 4 | 12 | 10 | 16.0 KB | `precompute_only` |
+| `H2O` | 7 | 10 | 14 | 12 | 64.0 KB | `precompute_only` |
+| `CH4` | 9 | 10 | 18 | 16 | 1.0 MB | `precompute_only` |
+| `C9H8O4` (aspirin) | 73 | 94 | 146 | 144 | more than 10^15 bytes | `beyond_classical_simulation` |
+
+Example request for the optional active-space block:
+```http
+GET /api/quantum/resources?formula=H2O&active_orbitals=4 HTTP/1.1
+Host: 127.0.0.1:8000
+```
+
+Example response (the `active_space` block only; the full-molecule fields above are unchanged, and
+the block carries six extra `estimated` tags keyed `active_space.*`):
+```json
+{
+  "active_space": {
+    "active_orbitals": 4,
+    "n_spatial_orbitals": 7,
+    "n_qubits": 8,
+    "n_qubits_after_parity_reduction": 6,
+    "feasibility": {
+      "based_on_qubits": 6,
+      "interactive_cap_qubits": 8,
+      "laptop_statevector_ceiling_qubits": 25,
+      "verdict": "simulable_in_app",
+      "reason": "6 qubits after the parity two-qubit reduction is at or below this app's 8-qubit interactive limit, so a dense statevector calculation of this size fits the app's budget.",
+      "note": "These limits are project choices and rough estimates, not measured hardware or algorithm bounds."
+    },
+    "note": "An active space is an approximation chosen by the user: every figure in this block describes the k-orbital problem, not the full molecule, and the frozen orbitals it leaves out change the energy.",
+    "statevector_memory_bytes": 1024,
+    "statevector_memory_human": "1.0 KB",
+    "hilbert_dimension": "64",
+    "statevector_basis": "n_qubits_after_parity_reduction",
+    "bytes_per_amplitude": 16
+  }
+}
+```
+
+Example request with no parameters (a usage answer, not a guessed molecule):
+```http
+GET /api/quantum/resources HTTP/1.1
+Host: 127.0.0.1:8000
+```
 
 Example response:
 ```json
 {
-  "molecule": "H2",
-  "n_qubits": null,
-  "hamiltonian_terms": null,
-  "estimated_circuit_gates": null,
-  "estimated_circuit_depth": null,
-  "artifact": "h2_sto3g.json",
-  "status": "placeholder",
-  "note": "h2_sto3g.json is present but this endpoint is not yet wired to its format, so the H2 resource estimate cannot be produced in this build."
+  "status": "usage",
+  "endpoint": "GET /api/quantum/resources",
+  "message": "Pass ?formula= (for example H2O or C9H8O4) or ?molecule=h2|lih to estimate what that molecule would need. No molecule was assumed for this request.",
+  "query_parameters": {
+    "formula": "a plain molecular formula, e.g. H2O, CH4, C9H8O4",
+    "molecule": "a known molecule key: h2, lih",
+    "active_orbitals": "optional integer k: also estimate the k-orbital active-space problem"
+  },
+  "example": {
+    "request": "?formula=H2O",
+    "formula": "H2O"
+  },
+  "basis": "STO-3G",
+  "supported_elements": [
+    "H",
+    "He",
+    "Li",
+    "Be",
+    "B",
+    "C",
+    "N",
+    "O",
+    "F",
+    "Ne",
+    "Na",
+    "Mg",
+    "Al",
+    "Si",
+    "P",
+    "S",
+    "Cl",
+    "Ar"
+  ],
+  "basis_functions_per_atom": {
+    "H": 1,
+    "He": 1,
+    "Li": 5,
+    "Be": 5,
+    "B": 5,
+    "C": 5,
+    "N": 5,
+    "O": 5,
+    "F": 5,
+    "Ne": 5,
+    "Na": 9,
+    "Mg": 9,
+    "Al": 9,
+    "Si": 9,
+    "P": 9,
+    "S": 9,
+    "Cl": 9,
+    "Ar": 9
+  },
+  "method": "computed_by_formula",
+  "note": "Computed by formula for the STO-3G basis (no PySCF run, no simulation). The classical simulation limits this estimator reports are project limits and rough estimates."
+}
+```
+
+Example response for `GET /api/quantum/resources?formula=Fe2O3` — standard error shape, `422`:
+```json
+{
+  "error": {
+    "code": "unsupported_element",
+    "message": "No STO-3G basis-function count for element(s): Fe. Supported elements are H, He, Li, Be, B, C, N, O, F, Ne, Na, Mg, Al, Si, P, S, Cl, Ar."
+  }
 }
 ```
 

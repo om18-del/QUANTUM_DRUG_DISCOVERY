@@ -43,9 +43,12 @@ simulate endpoint runs a real VQE — a small Ry ansatz minimised with SciPy COB
 Qiskit estimator — against the artifact's stored Pauli terms and compares it with an exact NumPy
 diagonalisation of the same operator. It is a classical simulation (no quantum hardware, no
 noise model), a fixed seed makes it reproducible, and `python scripts/measure_h2_vqe.py`
-reproduces the measurements listed in RESULTS.md. The resource estimate is the one panel still
-withheld — it is not wired to the artifact yet, so it reports *not available* rather than
-placeholder numbers.
+reproduces the measurements listed in RESULTS.md. The resource estimator panel answers a different
+question — *what would this molecule need?* — and answers it by counting from the molecular
+formula in the STO-3G minimal basis (`GET /api/quantum/resources?formula=`, with `POST` kept as a
+body-shaped alias). It reads no artifact and runs no simulation, it tags every figure `exact` or
+`estimated`, and it reports no Pauli-term or circuit-size number at all, because a formula cannot
+give one.
 
 PySCF publishes no Windows wheel, so regenerating the artifact has to happen where PySCF works
 — WSL or Google Colab:

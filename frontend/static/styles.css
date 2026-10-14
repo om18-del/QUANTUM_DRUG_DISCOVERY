@@ -449,6 +449,10 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .chip.computed { color: var(--ok); border-color: var(--ok); background: rgba(111, 207, 151, 0.10); }
 .chip.literature { color: var(--accent); border-color: var(--accent); background: rgba(110, 168, 254, 0.10); }
 .chip.skipped { color: var(--warn); border-color: var(--warn); background: rgba(242, 201, 74, 0.10); }
+/* The resource estimator tags every figure it prints as exact or estimated, so
+   the two tags need to be tellable apart at a glance. */
+.chip.exact { color: var(--ok); border-color: var(--ok); background: rgba(111, 207, 151, 0.10); }
+.chip.estimated { color: var(--warn); border-color: var(--warn); background: rgba(242, 201, 74, 0.10); }
 
 .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 6px; }
 table.data {

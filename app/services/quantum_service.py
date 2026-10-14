@@ -45,14 +45,25 @@ H2_HAMILTONIAN_ARTIFACT = "h2_sto3g.json"
 # file and never hard-codes more than the default key.
 DEFAULT_MOLECULE = "h2"
 
-# The curve, the single-point simulation and the resource estimate are three
-# different things, so each one names its own subject: the curve and the energy
-# are served from the artifact, while the estimate is still withheld. A single
-# shared sentence used to tell the simulate panel that "no H2 curve is
-# available", which is not what that endpoint computes.
+# The curve and the single-point simulation are two different things, so each
+# names its own subject in the note it returns: a single shared sentence used to
+# tell the simulate panel that "no H2 curve is available", which is not what that
+# endpoint computes. The resource estimator no longer reads the artifact at all
+# -- it counts from the molecular formula -- so it needs no subject here.
 CURVE_SUBJECT = "curve"
 ENERGY_SUBJECT = "energy"
-RESOURCE_SUBJECT = "resource estimate"
+
+# Registry molecule keys -> the molecular formula the resource estimator counts.
+# The keys mirror ``app.core.exact.MOLECULE_REGISTRY`` (a test keeps the two in
+# step) but the formula is written out, because "LiH (active space)" is a display
+# label rather than something the formula counter can parse.
+MOLECULE_FORMULAS: dict[str, str] = {"h2": "H2", "lih": "LiH"}
+
+RESOURCES_BASIS = "STO-3G"
+RESOURCES_USAGE_NOTE = (
+    "Computed by formula for the STO-3G basis (no PySCF run, no simulation). The classical "
+    "simulation limits this estimator reports are project limits and rough estimates."
+)
 
 # What every stored point must carry before it can answer either endpoint: the
 # curve serves HF, FCI and the nuclear repulsion separately, and the simulation
@@ -970,37 +981,104 @@ def compute_hadamard_demo() -> dict:
     }
 
 
-def compute_resources(molecule: str) -> dict:
-    """Rough resource estimate.
+def resources_usage() -> dict:
+    """No molecule was named, so say how to use the endpoint instead of guessing.
 
-    The H2 numbers used to be derived from the fabricated placeholder matrix, so
-    they are withheld until the resource estimator is wired to the artifact's
-    Pauli terms.
+    The resource estimator used to answer a nounless request with a placeholder
+    for H2, which reads as though H2 had been chosen for the caller. This reports
+    the request shape and the supported elements and assumes no molecule.
     """
-    normalized = molecule.strip().upper()
-    artifact, reason = _artifact_status(RESOURCE_SUBJECT)
-
-    if normalized == "H2":
-        return {
-            "molecule": "H2",
-            "n_qubits": None,
-            "hamiltonian_terms": None,
-            "estimated_circuit_gates": None,
-            "estimated_circuit_depth": None,
-            "artifact": artifact.name,
-            "status": "placeholder",
-            "note": reason,
-        }
+    # Lazy: app.core must never load at import time (enforced by guard tests).
+    from app.core.resources import STO3G_BASIS_FUNCTIONS_PER_ATOM, SUPPORTED_ELEMENTS
 
     return {
-        "molecule": molecule,
-        "qubits": None,
-        "hamiltonian_terms": None,
-        "estimated_circuit_gates": None,
-        "estimated_circuit_depth": None,
-        "note": (
-            "Only H2 is in scope for a resource estimate in this build; larger molecules "
-            "are added later."
+        "status": "usage",
+        "endpoint": "GET /api/quantum/resources",
+        "message": (
+            "Pass ?formula= (for example H2O or C9H8O4) or ?molecule=h2|lih to estimate what "
+            "that molecule would need. No molecule was assumed for this request."
         ),
-        "status": "placeholder",
+        "query_parameters": {
+            "formula": "a plain molecular formula, e.g. H2O, CH4, C9H8O4",
+            "molecule": "a known molecule key: " + ", ".join(sorted(MOLECULE_FORMULAS)),
+            "active_orbitals": (
+                "optional integer k: also estimate the k-orbital active-space problem"
+            ),
+        },
+        "example": {"request": "?formula=H2O", "formula": "H2O"},
+        "basis": RESOURCES_BASIS,
+        "supported_elements": list(SUPPORTED_ELEMENTS),
+        "basis_functions_per_atom": dict(STO3G_BASIS_FUNCTIONS_PER_ATOM),
+        "method": "computed_by_formula",
+        "note": RESOURCES_USAGE_NOTE,
     }
+
+
+def compute_resources(
+    *,
+    formula: str | None = None,
+    molecule: str | None = None,
+    active_orbitals: int | None = None,
+) -> dict:
+    """What would this molecule need? Counted from its formula, not simulated.
+
+    Every number comes from a closed-form rule in ``app.core.resources`` (the
+    STO-3G minimal-basis orbital count, the neutral electron count, and the
+    ``2**n_qubits * 16`` byte size of a complex128 statevector). Nothing is built,
+    diagonalised or read from an artifact, so this endpoint answers with or
+    without the Hamiltonians on disk; no Pauli-term or circuit-size figure is
+    invented, and each field says in ``tags`` whether it is exact or estimated.
+
+    ``molecule`` accepts a registry key (``h2``, ``lih``) or, for the older
+    body-shaped callers, the formula itself. ``active_orbitals`` adds an
+    active-space block. Bad input raises ``QuantumRequestError`` (422) with the
+    code the request deserves: ``invalid_formula``, ``unsupported_element`` or
+    ``invalid_active_orbitals``.
+    """
+    formula_text = (formula or "").strip()
+    molecule_text = (molecule or "").strip()
+
+    if not formula_text and not molecule_text:
+        if active_orbitals is not None:
+            raise QuantumRequestError(
+                "missing_formula",
+                "'active_orbitals' needs a 'formula' (or a known 'molecule' key) to say which "
+                "molecule it applies to.",
+                422,
+            )
+        return resources_usage()
+
+    if formula_text:
+        subject_formula, resolved_from = formula_text, "formula"
+    elif molecule_text.lower() in MOLECULE_FORMULAS:
+        subject_formula = MOLECULE_FORMULAS[molecule_text.lower()]
+        resolved_from = "molecule"
+    else:
+        # An older caller sends {"molecule": "C9H8O4"}: read a non-registry name
+        # as the formula itself rather than refusing input that used to work.
+        subject_formula, resolved_from = molecule_text, "molecule_as_formula"
+
+    # Lazy: app.core must never load at import time (enforced by guard tests).
+    from app.core import resources as resource_core
+
+    try:
+        payload = resource_core.estimate_resources(
+            subject_formula, active_orbitals=active_orbitals
+        )
+    except resource_core.UnsupportedElementError as exc:
+        raise QuantumRequestError("unsupported_element", str(exc), 422) from exc
+    except resource_core.ActiveOrbitalsError as exc:
+        raise QuantumRequestError("invalid_active_orbitals", str(exc), 422) from exc
+    except resource_core.ResourceEstimateError as exc:
+        raise QuantumRequestError("invalid_formula", str(exc), 422) from exc
+
+    requested: dict[str, Any] = {
+        "formula": formula_text or None,
+        "molecule": molecule_text or None,
+        "resolved_formula": subject_formula,
+        "resolved_from": resolved_from,
+    }
+    if formula_text and molecule_text:
+        requested["note"] = "Both 'formula' and 'molecule' were given; 'formula' was used."
+    payload["requested"] = requested
+    return payload

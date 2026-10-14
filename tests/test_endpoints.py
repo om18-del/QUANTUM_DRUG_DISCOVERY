@@ -602,36 +602,147 @@ def test_simulate_unsupported_molecule_is_placeholder() -> None:
     assert data["vqe_energy_ha"] is None
 
 
-def test_resources_h2_is_placeholder_without_the_artifact(tmp_path, monkeypatch) -> None:
-    """These numbers were previously derived from the fabricated matrix."""
+def test_resources_are_counted_from_the_formula_without_any_artifact(tmp_path, monkeypatch) -> None:
+    """The estimate no longer depends on a Hamiltonian file being present.
+
+    It used to answer H2 with ``status: "placeholder"`` and null qubit counts
+    whenever the artifact was missing, because its numbers were derived from the
+    file. It now counts from the formula, so pointing the service at an empty
+    directory must not change the answer -- and it must never mention the curve.
+    """
     _point_quantum_service_at(tmp_path, monkeypatch)
 
-    response = client.post(
-        "/api/quantum/resources",
-        content=json.dumps({"molecule": "H2"}),
-    )
+    response = client.get("/api/quantum/resources", params={"formula": "H2"})
 
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "placeholder"
-    assert data["n_qubits"] is None
-    assert data["hamiltonian_terms"] is None
-    assert data["note"]
-    # It is a resource estimate, not a curve, so the panel must not be told to
-    # look at one.
-    assert "no H2 resource estimate is available" in data["note"]
-    assert "curve" not in data["note"].lower(), data["note"]
+    assert data["status"] == "computed"
+    assert data["n_spatial_orbitals"] == 2
+    assert data["n_electrons"] == 2
+    assert data["n_qubits_full"] == 4
+    assert data["n_qubits_after_parity_reduction"] == 2
+    assert data["statevector_memory_bytes"] == 64
+    assert data["feasibility"]["verdict"] == "simulable_in_app"
+    assert "curve" not in json.dumps(data).lower(), data
 
 
-def test_resources_unsupported_is_placeholder() -> None:
+def test_resources_rejects_a_name_that_is_not_a_formula() -> None:
+    """``caffeine`` is a name, not a formula, and the estimator takes formulas."""
     response = client.post(
         "/api/quantum/resources",
         content=json.dumps({"molecule": "caffeine"}),
     )
+    data = _assert_error_shape(response, "invalid_formula", 422)
+    assert "caffeine" in data["error"]["message"]
+    assert "formula" in data["error"]["message"]
+
+
+def test_resources_endpoint_returns_the_worked_examples() -> None:
+    """The five documented examples, counted by the live endpoint.
+
+    orbitals, electrons, full qubits, reduced qubits, verdict -- every value
+    written out by hand here rather than read back from the response's own
+    formulas.
+    """
+    expected = {
+        "H2": (2, 2, 4, 2, "simulable_in_app"),
+        "LiH": (6, 4, 12, 10, "precompute_only"),
+        "H2O": (7, 10, 14, 12, "precompute_only"),
+        "CH4": (9, 10, 18, 16, "precompute_only"),
+        "C9H8O4": (73, 94, 146, 144, "beyond_classical_simulation"),
+    }
+
+    for formula, values in expected.items():
+        response = client.get("/api/quantum/resources", params={"formula": formula})
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data["status"] == "computed"
+        assert data["basis"] == "STO-3G"
+        assert (
+            data["n_spatial_orbitals"],
+            data["n_electrons"],
+            data["n_qubits_full"],
+            data["n_qubits_after_parity_reduction"],
+            data["feasibility"]["verdict"],
+        ) == values, formula
+        assert data["tags"]["n_qubits_full"] == "exact"
+
+
+def test_resources_without_parameters_is_a_usage_response() -> None:
+    """No parameters must not be answered with a guessed molecule."""
+    response = client.get("/api/quantum/resources")
+
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "placeholder"
-    assert "n_qubits" not in data
+    assert data["status"] == "usage"
+    assert "formula" in data["message"]
+    assert data["basis"] == "STO-3G"
+    assert data["supported_elements"][:3] == ["H", "He", "Li"]
+    assert set(data["supported_elements"]) == set(data["basis_functions_per_atom"])
+    assert "n_qubits_full" not in data
+
+
+def test_resources_post_alias_still_answers() -> None:
+    """The body-shaped call an older client makes goes through the same path."""
+    response = client.post("/api/quantum/resources", content=json.dumps({"molecule": "H2"}))
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "computed"
+    assert data["requested"]["molecule"] == "H2"
+    assert data["n_qubits_full"] == 4
+
+    empty = client.post("/api/quantum/resources", content=json.dumps({}))
+    assert empty.status_code == 200
+    assert empty.json()["status"] == "usage"
+
+
+def test_resources_unsupported_element_is_a_422() -> None:
+    response = client.get("/api/quantum/resources", params={"formula": "Fe2O3"})
+
+    data = _assert_error_shape(response, "unsupported_element", 422)
+    assert "Fe" in data["error"]["message"]
+    assert "Ar" in data["error"]["message"]
+
+
+def test_resources_invalid_formula_is_a_422() -> None:
+    response = client.get("/api/quantum/resources", params={"formula": "c6h6"})
+    _assert_error_shape(response, "invalid_formula", 422)
+
+
+def test_resources_active_orbitals_bounds() -> None:
+    ok = client.get("/api/quantum/resources", params={"formula": "H2O", "active_orbitals": 4})
+    assert ok.status_code == 200
+    assert ok.json()["active_space"]["n_qubits"] == 8
+    assert ok.json()["tags"]["active_space.n_qubits"] == "estimated"
+
+    too_big = client.get("/api/quantum/resources", params={"formula": "H2O", "active_orbitals": 99})
+    _assert_error_shape(too_big, "invalid_active_orbitals", 422)
+
+    orphan = client.get("/api/quantum/resources", params={"active_orbitals": 4})
+    _assert_error_shape(orphan, "missing_formula", 422)
+
+
+def test_resources_molecule_key_is_resolved_to_its_formula() -> None:
+    response = client.get("/api/quantum/resources", params={"molecule": "lih"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["requested"]["resolved_formula"] == "LiH"
+    assert data["requested"]["resolved_from"] == "molecule"
+    assert data["n_spatial_orbitals"] == 6
+
+
+def test_resources_molecule_keys_match_the_registry() -> None:
+    """A registry molecule must be nameable at the estimator without a formula."""
+    from app.core.exact import MOLECULE_REGISTRY
+    from app.services.quantum_service import MOLECULE_FORMULAS
+
+    for key in MOLECULE_REGISTRY:
+        assert key in MOLECULE_FORMULAS, key
+        response = client.get("/api/quantum/resources", params={"molecule": key})
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "computed"
 
 
 def test_molecule_search_live_pubchem() -> None:

@@ -147,8 +147,41 @@ def get_hadamard_demo() -> dict:
     return compute_hadamard_demo()
 
 
+@router.get("/resources", response_model=None)
+def get_resources(
+    formula: str | None = Query(None, max_length=200),
+    molecule: str | None = Query(None, max_length=100),
+    active_orbitals: int | None = Query(None),
+) -> QuantumResponse:
+    """What would this molecule need? Counted from its formula (STO-3G).
+
+    With no parameters this answers with a usage description and the supported
+    element list rather than guessing a molecule. Bad input is a 422 in the
+    standard error envelope: ``invalid_formula``, ``unsupported_element`` or
+    ``invalid_active_orbitals``.
+    """
+    try:
+        return compute_resources(
+            formula=formula,
+            molecule=molecule,
+            active_orbitals=active_orbitals,
+        )
+    except QuantumRequestError as exc:
+        return _error_response(exc.code, exc.message, exc.status_code)
+    except Exception as exc:
+        return _error_response(
+            "resource_estimate_failed", f"Resource estimate failed: {exc}", 500
+        )
+
+
 @router.post("/resources", response_model=None)
 async def post_resources(request: Request) -> QuantumResponse:
+    """Body-shaped alias of ``GET /api/quantum/resources``, kept compatible.
+
+    The endpoint used to take ``{molecule}``; that body, a ``{formula}`` body and
+    a body with ``active_orbitals`` all answer through the same code path, and an
+    empty body returns the same usage description as the GET.
+    """
     try:
         body = await request.json()
     except Exception:
@@ -157,8 +190,22 @@ async def post_resources(request: Request) -> QuantumResponse:
     if not isinstance(body, dict):
         return _error_response("invalid_body", "Request body must be a JSON object", 400)
 
-    molecule = body.get("molecule")
-    if not isinstance(molecule, str) or not molecule.strip():
-        return _error_response("invalid_molecule", "Field 'molecule' is required and must be a non-empty string", 422)
+    for field, code in (("formula", "invalid_formula"), ("molecule", "invalid_molecule")):
+        value = body.get(field)
+        if value is not None and not isinstance(value, str):
+            return _error_response(code, f"Field '{field}' must be a string", 422)
 
-    return compute_resources(molecule)
+    active_orbitals, error = _parse_optional_int(
+        body, "active_orbitals", "invalid_active_orbitals", 1, 4096
+    )
+    if error is not None:
+        return error
+
+    try:
+        return compute_resources(
+            formula=body.get("formula"),
+            molecule=body.get("molecule"),
+            active_orbitals=active_orbitals,
+        )
+    except QuantumRequestError as exc:
+        return _error_response(exc.code, exc.message, exc.status_code)

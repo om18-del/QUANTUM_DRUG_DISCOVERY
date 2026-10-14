@@ -22,7 +22,8 @@ from app.core.resources import (
 )
 
 # Independent transcription of the STO-3G basis: H/He contribute one 1s function,
-# Li to Ne contribute 1s, 2s, 2px, 2py, 2pz = five.
+# Li to Ne contribute 1s, 2s, 2px, 2py, 2pz = five, and Na to Ar add 3s and
+# 3px, 3py, 3pz on top of that = nine.
 BASIS_FUNCTIONS_PER_ATOM = {
     "H": 1,
     "He": 1,
@@ -34,6 +35,14 @@ BASIS_FUNCTIONS_PER_ATOM = {
     "O": 5,
     "F": 5,
     "Ne": 5,
+    "Na": 9,
+    "Mg": 9,
+    "Al": 9,
+    "Si": 9,
+    "P": 9,
+    "S": 9,
+    "Cl": 9,
+    "Ar": 9,
 }
 
 # Atom counts read off each formula by hand, independent of any parser.
@@ -41,7 +50,10 @@ FORMULA_ATOM_COUNTS = {
     "H2": {"H": 2},
     "LiH": {"Li": 1, "H": 1},
     "H2O": {"H": 2, "O": 1},
+    "CH4": {"C": 1, "H": 4},
     "C9H8O4": {"C": 9, "H": 8, "O": 4},
+    "NaCl": {"Na": 1, "Cl": 1},
+    "CH3Cl": {"C": 1, "H": 3, "Cl": 1},
 }
 
 _FORMULA_TOKEN = re.compile(r"([A-Z][a-z]?)(\d*)")
@@ -89,6 +101,8 @@ def test_formula_parser_handles_implicit_and_explicit_counts() -> None:
     assert parse_formula_counts("H2O") == {"H": 2, "O": 1}
     assert parse_formula_counts("C9H8O4") == {"C": 9, "H": 8, "O": 4}
     assert parse_formula_counts("C6H6") == {"C": 6, "H": 6}
+    assert parse_formula_counts("NaCl") == {"Na": 1, "Cl": 1}
+    assert parse_formula_counts("CH3Cl") == {"C": 1, "H": 3, "Cl": 1}
 
 
 def test_result_is_flagged_as_unverified() -> None:
