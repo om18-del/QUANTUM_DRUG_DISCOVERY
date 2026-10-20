@@ -440,6 +440,28 @@ window.addEventListener("DOMContentLoaded", () => {
   onClick("#sim-run", runMoleculeSimulation);
   onClick("#protein-fetch", fetchProtein);
   onClick("#complexes-list", onComplexClick);
+  onClick("#explore-run", () => runExplore($("#explore-pdb").value));
+  onClick("#explore-candidates", onExploreCandidateClick);
+  onChange("#complex-category", () => {
+    complexesState.category = $("#complex-category").value;
+    renderComplexList();
+  });
+  const search = $("#complex-search");
+  if (search) {
+    search.addEventListener("input", () => {
+      complexesState.query = search.value;
+      renderComplexList();
+    });
+  }
+  const exploreInput = $("#explore-pdb");
+  if (exploreInput) {
+    exploreInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        runExplore(exploreInput.value);
+      }
+    });
+  }
 
   onClick("#mol-reset", () => resetMolView());
   onClick("#mol-2d", show2DDepiction);
@@ -544,7 +566,7 @@ function drawCurve(ctx, canvas, body) {
   canvas.height = Math.floor(cssH * dpr);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.scale(dpr, dpr);
-  const pad = { top: 14, right: 14, bottom: 26, left: 44 };
+  const pad = { top: 14, right: 14, bottom: 40, left: 44 };
   const plotW = Math.max(10, cssW - pad.left - pad.right);
   const plotH = Math.max(10, cssH - pad.top - pad.bottom);
 
@@ -584,11 +606,36 @@ function drawCurve(ctx, canvas, body) {
     ctx.lineTo(pad.left + plotW, y);
     ctx.stroke();
   }
+  // X ticks: six labelled values, not one label per stored point. All 58 point
+  // labels used to overlap into an unreadable smear. Every value below sits on
+  // the stored grid (0.20 .. 3.00 in 0.05 steps, plus 0.74), and a value that is
+  // not on it is skipped rather than drawn at the wrong place.
+  const xTickValues = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
+  const gridStep = xs.length > 1 ? Math.abs(xs[1] - xs[0]) : 0.05;
+  const xTolerance = Math.max(1e-9, gridStep / 2);
+  ctx.strokeStyle = "#8892b5";
+  ctx.fillStyle = "#8892b5";
   ctx.textAlign = "center";
-  for (let i = 0; i < xs.length; i++) {
-    const x = xScale(i);
-    ctx.fillText(xs[i].toFixed(2) + "Å", x, pad.top + plotH + 14);
+  for (const value of xTickValues) {
+    let nearestIndex = -1;
+    let nearestDistance = Infinity;
+    for (let i = 0; i < xs.length; i++) {
+      const distance = Math.abs(xs[i] - value);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = i;
+      }
+    }
+    if (nearestIndex < 0 || nearestDistance > xTolerance) continue;
+    const x = xScale(nearestIndex);
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top + plotH);
+    ctx.lineTo(x, pad.top + plotH + 4);
+    ctx.stroke();
+    ctx.fillText(value.toFixed(1), x, pad.top + plotH + 17);
   }
+  // The unit is stated once, under the ticks, instead of once per point.
+  ctx.fillText("bond length (Å)", pad.left + plotW / 2, pad.top + plotH + 33);
 
   if (exact) {
     ctx.strokeStyle = "#6ea8fe";
@@ -712,6 +759,9 @@ async function runSimulate() {
   // is either "statevector" or a shot count. There is no free-text shots box.
   const runMode = $("#sim-run-mode") ? $("#sim-run-mode").value : "statevector";
   const shots = runMode === "statevector" ? null : parseInt(runMode, 10);
+  // The noise box is disabled in the form and labelled "not applied yet": the
+  // backend accepts and echoes the field but no noise model exists, so the value
+  // is inert. It is still sent so the request shape stays the documented one.
   const noise = $("#sim-noise").value;
   const status = $("#simulate-status");
   const el = $("#simulate-result");
@@ -1639,25 +1689,62 @@ const complexView = {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const complexesState = { all: [], category: "all", query: "" };
+
+function complexMatches(c) {
+  const category = complexesState.category;
+  if (category === "viral" && c.category !== "viral") return false;
+  if (category === "human" && !String(c.category || "").startsWith("human")) return false;
+  const query = complexesState.query.trim().toLowerCase();
+  if (!query) return true;
+  const haystack = `${c.display_name || ""} ${c.protein_pdb || ""} ${c.ligand_name || ""} ${c.ligand_code || ""}`.toLowerCase();
+  return haystack.includes(query);
+}
+
+/** "Curated mechanism" vs "Contacts only" -- the tier badge the data declares. */
+function tierBadgeHtml(tier) {
+  return tier === "curated"
+    ? '<span class="tier-badge curated">Curated mechanism</span>'
+    : '<span class="tier-badge contacts_only">Contacts only</span>';
+}
+
+function renderComplexList() {
+  const status = $("#complexes-status");
+  const list = $("#complexes-list");
+  if (!list) return;
+  const total = complexesState.all.length;
+  if (!total) {
+    setStatus(status, "placeholder", "no curated complexes");
+    list.innerHTML = `<div class="placeholder-note">No curated complexes available.</div>`;
+    return;
+  }
+  const items = complexesState.all.filter(complexMatches);
+  if (!items.length) {
+    setStatus(status, "placeholder", `0 of ${total} complexes match`);
+    list.innerHTML = '<div class="empty-filter-note">No curated complex matches this filter.</div>';
+    return;
+  }
+  setStatus(status, "ok", `${items.length} of ${total} complexes`);
+  list.innerHTML = items.map((c) => `
+    <div class="list-item" data-complex-id="${escapeHtml(c.id || "")}">
+      <div class="list-item-head">
+        <h4>${escapeHtml(c.display_name || c.id)}</h4>
+        ${tierBadgeHtml(c.tier)}
+      </div>
+      <p>${escapeHtml(c.protein_pdb || "")} · ${escapeHtml(c.ligand_name || "")}${c.ligand_code ? ` (${escapeHtml(c.ligand_code)})` : ""}${c.resolution_angstrom != null ? ` · ${num(c.resolution_angstrom, 2)} Å` : ""}</p>
+      <p>${escapeHtml(c.target_class || "")}</p>
+    </div>
+  `).join("");
+}
+
 async function loadComplexes() {
   const status = $("#complexes-status");
   const list = $("#complexes-list");
   setStatus(status, "placeholder", "loading manifest…");
   try {
     const { body } = await apiFetch("/complexes/list");
-    if (!body.complexes || body.complexes.length === 0) {
-      setStatus(status, "placeholder", "no curated complexes");
-      list.innerHTML = `<div class="placeholder-note">No curated complexes available.</div>`;
-      return;
-    }
-    setStatus(status, "ok", `${body.complexes.length} complexes`);
-    list.innerHTML = body.complexes.map((c) => `
-      <div class="list-item" data-complex-id="${escapeHtml(c.id || "")}">
-        <h4>${escapeHtml(c.display_name || c.id)}</h4>
-        <p>${escapeHtml(c.protein_pdb || "")} · ${escapeHtml(c.ligand_name || "")}${c.ligand_code ? ` (${escapeHtml(c.ligand_code)})` : ""}</p>
-        <p>${escapeHtml(c.target_class || "")}</p>
-      </div>
-    `).join("");
+    complexesState.all = Array.isArray(body.complexes) ? body.complexes : [];
+    renderComplexList();
   } catch (e) {
     setStatus(status, "err", shortErrorState(e && e.error ? e.error : e));
     list.innerHTML = errorNote(e && e.error ? e.error : e);
@@ -1729,6 +1816,153 @@ function catalyticHtml(catalytic) {
   `;
 }
 
+function citationsHtml(citations) {
+  if (!Array.isArray(citations) || !citations.length) return "";
+  return `
+    <div class="section-label">Sources (LITERATURE)</div>
+    <ul class="citation-list">
+      ${citations
+        .map(
+          (c) =>
+            `<li>${escapeHtml(c.authors || "")} <em>${escapeHtml(c.title || "")}</em> ${escapeHtml(
+              c.journal || "",
+            )} ${escapeHtml(String(c.year || ""))}. ${
+              c.doi
+                ? `DOI <a href="https://doi.org/${encodeURIComponent(c.doi)}" target="_blank" rel="noopener">${escapeHtml(c.doi)}</a>`
+                : ""
+            }${c.pmid ? ` · PMID <a href="https://pubmed.ncbi.nlm.nih.gov/${encodeURIComponent(c.pmid)}/" target="_blank" rel="noopener">${escapeHtml(c.pmid)}</a>` : ""}</li>`,
+        )
+        .join("")}
+    </ul>
+  `;
+}
+
+function complexDetailHtml(body, id) {
+  const mech = body.mechanism || {};
+  // Only a curated entry gets a mechanism narrative; a contacts-only or explored
+  // entry is measured geometry and nothing more.
+  const curated = body.tier === "curated" && body.curation !== "none";
+  const counts = body.contact_summary || {};
+  const catalytic = Array.isArray(mech.catalytic_residues) ? mech.catalytic_residues : [];
+
+  const metrics = [
+    { k: "ligand", v: body.ligand_name || body.ligand_code, sub: `${body.ligand_atom_count ?? "—"} atoms` },
+    { k: "binding residues", v: body.binding_site_residue_count ?? "—" },
+    { k: "hydrogen bonds", v: counts.hydrogen_bond ?? "—", sub: "geometric heuristic · upper bound" },
+    { k: "salt bridges", v: counts.salt_bridge ?? "—", sub: "geometric heuristic · upper bound" },
+    { k: "hydrophobic", v: counts.hydrophobic ?? "—", sub: "measured geometry" },
+    curated && catalytic.length
+      ? {
+          k: "catalytic blocked",
+          v: `${mech.catalytic_residues_occluded ?? "—"} / ${mech.catalytic_residues_curated ?? "—"}`,
+        }
+      : { k: "catalytic blocked", v: "not curated", sub: "no literature-verified residue list" },
+  ];
+  if (body.resolution_angstrom != null) {
+    metrics.push({ k: "resolution", v: `${num(body.resolution_angstrom, 2)} Å` });
+  }
+
+  // A donor/acceptor pair can have ideal geometry and still be excluded, purely
+  // because the distance is over the cutoff. Say so, instead of showing a bare 0.
+  const nearMiss = Array.isArray(body.near_miss_hydrogen_bonds) ? body.near_miss_hydrogen_bonds : [];
+  const nearMissHtml = nearMiss.length
+    ? `<p><strong>Not counted as hydrogen bonds</strong> — donor/acceptor geometry is right, but the distance is over 3.5 Å: ${nearMiss
+        .map(
+          (n) =>
+            `${escapeHtml(n.protein_residue)} · ligand ${escapeHtml(n.ligand_atom)} · ${num(n.distance_angstrom, 2)} Å · ${n.angle_deg == null ? "angle n/a" : num(n.angle_deg, 1) + "\u00b0"}`,
+        )
+        .join("; ")}</p>`
+    : "";
+
+  // Every ligand N/O is treated as both a possible donor and a possible acceptor,
+  // because the deposited file carries no hydrogens and no protonation states. The
+  // set of real donors/acceptors is a subset of that, so the count can only over-state
+  // the truth. Call it an upper bound rather than implying an exact count.
+  const boundCount = counts.hydrogen_bond ?? 0;
+  const boundCountSalt = counts.salt_bridge ?? 0;
+  const upperBoundHtml =
+    `<p><strong>Both counts above are upper bounds.</strong> ` +
+    `Each ligand N/O is treated as a possible donor and a possible acceptor, because the ` +
+    `deposited coordinates contain no hydrogens and no protonation states. Real donors and ` +
+    `acceptors are a subset of that, so some of the ${escapeHtml(String(boundCount))} hydrogen-bond ` +
+    `and ${escapeHtml(String(boundCountSalt))} salt-bridge residues may not form that interaction ` +
+    `in reality. A salt bridge is checked before a hydrogen bond, so a residue can appear in both ` +
+    `counts: the two lists overlap and must not be summed.</p>`;
+
+  const rulesHtml = contactRulesHtml(body.contact_rules, body.contact_labels);
+  const methodHtml = body.method ? `<p>${escapeHtml(body.method)}</p>` : "";
+
+  // The API caps each residue's atom_pairs list; say so rather than showing the
+  // capped list next to complete counts as if it were the whole set.
+  const truncNote = body.atom_pairs_truncated
+    ? `<p class="method-note">Per-residue atom pairs are capped at 12 (atom_pairs_truncated is set). The contact counts above are the complete tally.</p>`
+    : "";
+
+  // A distinct table id keeps the curated and explored panels from sharing one
+  // DOM id when both are on screen.
+  const tablePrefix = String(id || "").startsWith("explore:") ? "explore" : "complex";
+
+  const uncuratedHtml = curated
+    ? ""
+    : `<p class="method-note"><strong>${escapeHtml(
+        body.curation_note || "Not curated: measured contacts only",
+      )}</strong> There is no mechanism narrative and no catalytic-residue panel for this entry; everything below is measured geometry from the deposited coordinates.</p>`;
+
+  return `
+      <div class="computed-note">
+        <span class="tier-badge ${curated ? "curated" : "uncurated"}">${
+          curated ? "Curated mechanism" : "Not curated: measured contacts only"
+        }</span>
+        ${escapeHtml(body.display_name || id)}
+      </div>
+      ${uncuratedHtml}
+      <div class="metric-grid" style="margin-top:10px">
+        ${metrics
+          .map(
+            (m) => `
+          <div class="metric">
+            <div class="k">${escapeHtml(m.k)}</div>
+            <div class="v">${escapeHtml(String(m.v))}</div>
+            ${m.sub ? `<div class="sub">${escapeHtml(m.sub)}</div>` : ""}
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+      <p class="method-note">Every distance below is measured from the deposited crystal
+      coordinates, in ångström, between heavy atoms only.</p>
+      <details class="contact-rules">
+        <summary>How these contacts are measured</summary>
+        <div>
+          ${methodHtml}
+          ${rulesHtml}
+          ${upperBoundHtml}
+          ${nearMissHtml}
+        </div>
+      </details>
+      ${curated ? citationsHtml(body.citations) : ""}
+      ${curated ? catalyticHtml(catalytic) : ""}
+      ${curated && body.catalytic_residues_note ? `<p class="method-note">${escapeHtml(body.catalytic_residues_note)}</p>` : ""}
+      ${curated ? stepsHtml(mech.steps, "mech") : ""}
+      ${contactTableHtml(body.interacting_residues, tablePrefix)}
+      ${truncNote}
+      ${jsonBlock(body)}
+    `;
+}
+
+function renderComplexInto(el, body, id) {
+  el.hidden = false;
+  el.innerHTML = complexDetailHtml(body, id);
+  complexView.data = body;
+  setComplexControls(true);
+  showComplex3D(body);
+  const play = $("#complex-play");
+  if (play) {
+    const steps = body.mechanism && Array.isArray(body.mechanism.steps) ? body.mechanism.steps : [];
+    play.disabled = !steps.length;
+  }
+}
+
 async function loadComplexDetail(id) {
   const status = $("#complexes-status");
   const el = $("#complex-detail");
@@ -1751,92 +1985,75 @@ async function loadComplexDetail(id) {
       return;
     }
 
-    const mech = body.mechanism || {};
-    const counts = body.contact_summary || {};
-    const metrics = [
-      { k: "ligand", v: body.ligand_name || body.ligand_code, sub: `${body.ligand_atom_count ?? "—"} atoms` },
-      { k: "binding residues", v: body.binding_site_residue_count ?? "—" },
-      { k: "hydrogen bonds", v: counts.hydrogen_bond ?? "—", sub: "geometric heuristic · upper bound" },
-      { k: "salt bridges", v: counts.salt_bridge ?? "—", sub: "geometric heuristic · upper bound" },
-      { k: "hydrophobic", v: counts.hydrophobic ?? "—", sub: "measured geometry" },
-      { k: "catalytic blocked", v: `${mech.catalytic_residues_occluded ?? "—"} / ${mech.catalytic_residues_curated ?? "—"}` },
-    ];
-
-    // A donor/acceptor pair can have ideal geometry and still be excluded, purely
-    // because the distance is over the cutoff. Say so, instead of showing a bare 0.
-    const nearMiss = Array.isArray(body.near_miss_hydrogen_bonds) ? body.near_miss_hydrogen_bonds : [];
-    const nearMissHtml = nearMiss.length
-      ? `<p><strong>Not counted as hydrogen bonds</strong> — donor/acceptor geometry is right, but the distance is over 3.5 Å: ${nearMiss
-          .map(
-            (n) =>
-              `${escapeHtml(n.protein_residue)} · ligand ${escapeHtml(n.ligand_atom)} · ${num(n.distance_angstrom, 2)} Å · ${n.angle_deg == null ? "angle n/a" : num(n.angle_deg, 1) + "\u00b0"}`,
-          )
-          .join("; ")}</p>`
-      : "";
-
-    // Every ligand N/O is treated as both a possible donor and a possible acceptor,
-    // because the deposited file carries no hydrogens and no protonation states. The
-    // set of real donors/acceptors is a subset of that, so the count can only over-state
-    // the truth. Call it an upper bound rather than implying an exact count.
-    const boundCount = counts.hydrogen_bond ?? 0;
-    const boundCountSalt = counts.salt_bridge ?? 0;
-    const upperBoundHtml =
-      `<p><strong>Both counts above are upper bounds.</strong> ` +
-      `Each ligand N/O is treated as a possible donor and a possible acceptor, because the ` +
-      `deposited coordinates contain no hydrogens and no protonation states. Real donors and ` +
-      `acceptors are a subset of that, so some of the ${escapeHtml(String(boundCount))} hydrogen-bond ` +
-      `and ${escapeHtml(String(boundCountSalt))} salt-bridge residues may not form that interaction ` +
-      `in reality. A salt bridge is checked before a hydrogen bond, so a residue can appear in both ` +
-      `counts: the two lists overlap and must not be summed.</p>`;
-
-    const rulesHtml = contactRulesHtml(body.contact_rules, body.contact_labels);
-    const methodHtml = body.method ? `<p>${escapeHtml(body.method)}</p>` : "";
-
-    // The API caps each residue's atom_pairs list; say so rather than showing the
-    // capped list next to complete counts as if it were the whole set.
-    const truncNote = body.atom_pairs_truncated
-      ? `<p class="method-note">Per-residue atom pairs are capped at 12 (atom_pairs_truncated is set). The contact counts above are the complete tally.</p>`
-      : "";
-
     setStatus(status, "ok", `contacts measured for ${body.protein_pdb}`);
-    el.innerHTML = `
-      <div class="computed-note">complex: ${escapeHtml(body.display_name || id)}</div>
-      <div class="metric-grid" style="margin-top:10px">
-        ${metrics.map((m) => `
-          <div class="metric">
-            <div class="k">${escapeHtml(m.k)}</div>
-            <div class="v">${escapeHtml(String(m.v))}</div>
-            ${m.sub ? `<div class="sub">${escapeHtml(m.sub)}</div>` : ""}
-          </div>
-        `).join("")}
-      </div>
-      <p class="method-note">Every distance below is measured from the deposited crystal
-      coordinates, in ångström, between heavy atoms only.</p>
-      <details class="contact-rules">
-        <summary>How these contacts are measured</summary>
-        <div>
-          ${methodHtml}
-          ${rulesHtml}
-          ${upperBoundHtml}
-          ${nearMissHtml}
-        </div>
-      </details>
-      ${catalyticHtml(mech.catalytic_residues)}
-      ${stepsHtml(mech.steps, "mech")}
-      ${contactTableHtml(body.interacting_residues, "complex")}
-      ${truncNote}
-      ${jsonBlock(body)}
-    `;
-
-    complexView.data = body;
-    setComplexControls(true);
-    showComplex3D(body);
-    $("#complex-play").disabled = false;
+    renderComplexInto(el, body, id);
   } catch (e) {
     el.innerHTML = errorNote(e && e.error ? e.error : e);
     setStatus(status, "err", shortErrorState(e && e.error ? e.error : e));
     complexView.data = null;
     setComplexControls(false);
+  }
+}
+
+function onExploreCandidateClick(e) {
+  const button = e.target.closest("[data-explore-ligand]");
+  if (!button) return;
+  runExplore($("#explore-pdb").value, button.dataset.exploreLigand);
+}
+
+async function runExplore(pdbId, ligand) {
+  const status = $("#explore-status");
+  const candidates = $("#explore-candidates");
+  const detail = $("#explore-detail");
+  const id = String(pdbId || "").trim().toUpperCase();
+  if (!/^[0-9][A-Za-z0-9]{3}$/.test(id)) {
+    setStatus(status, "err", "enter a 4-character PDB ID");
+    candidates.innerHTML = "";
+    detail.hidden = true;
+    return;
+  }
+
+  setStatus(status, "placeholder", `fetching ${id}…`);
+  candidates.innerHTML = "";
+  detail.hidden = true;
+  try {
+    const suffix = ligand ? `?ligand=${encodeURIComponent(ligand)}` : "";
+    const { body } = await apiFetch(`/complexes/explore/${encodeURIComponent(id)}${suffix}`);
+
+    if (body.status === "ligand_selection_required") {
+      setStatus(status, "placeholder", `${body.ligand_candidates.length} drug-like ligands`);
+      candidates.innerHTML = `
+        <p class="method-note">${escapeHtml(body.note || "Choose a ligand.")}</p>
+        <p class="method-note">${escapeHtml(body.ligand_rule || "")}</p>
+        <div class="candidate-row">
+          ${body.ligand_candidates
+            .map(
+              (c) =>
+                `<button class="btn candidate-btn" type="button" data-explore-ligand="${escapeHtml(
+                  c.ligand_code,
+                )}">${escapeHtml(c.ligand_code)} · ${c.heavy_atom_count} heavy atoms${
+                  c.chain ? ` · chain ${escapeHtml(c.chain)}` : ""
+                }</button>`,
+            )
+            .join("")}
+        </div>
+      `;
+      return;
+    }
+
+    if (body.status !== "computed") {
+      setStatus(status, "placeholder", shortState(body));
+      candidates.innerHTML = placeholderNote(body.note || "No contacts could be measured.");
+      return;
+    }
+
+    setStatus(status, "ok", `${body.protein_pdb} · ${body.ligand_code} · contacts measured`);
+    renderComplexInto(detail, body, body.complex_id);
+  } catch (e) {
+    const err = e && e.error ? e.error : e;
+    setStatus(status, "err", shortErrorState(err));
+    candidates.innerHTML = errorNote(err);
+    detail.hidden = true;
   }
 }
 

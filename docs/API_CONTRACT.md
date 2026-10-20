@@ -571,6 +571,7 @@ Example response (live capture; H2O, 7 STO-3G spatial orbitals):
   "subject": {
     "input": "H2O",
     "formula": "H2O",
+    "normalised_formula": "H2O",
     "atom_counts": {
       "H": 2,
       "O": 1
@@ -622,9 +623,9 @@ Example response (live capture; H2O, 7 STO-3G spatial orbitals):
     "pauli_term_scaling": "Pauli term growth is roughly N^4 in the number of orbitals (estimated, order-of-magnitude). No specific term count is computed here, because a term count depends on the mapped Hamiltonian, which this estimator does not build.",
     "limits": "The classical simulation limits in 'feasibility' are project limits and rough estimates; they are not measured hardware or algorithm bounds.",
     "interactive_limit": "Above 8 qubits this app refuses a dense diagonalisation (too_many_qubits), and H2 is the only molecule with a VQE ansatz, so 'simulable_in_app' means the size fits the app's budget rather than that a simulation exists for this molecule.",
-    "verification": "The STO-3G orbital counts are counted from the minimal-basis rule, not read from a basis file, and have not been cross-checked against PySCF on this host."
+    "verification": "The STO-3G counts for H2O were cross-checked with PySCF mol.nao (STO-3G) in Colab and match this rule-based count (7 spatial orbitals, 10 electrons). No PySCF version was recorded, and the electron count is still the neutral-atom sum."
   },
-  "verified_against_pyscf": false,
+  "verified_against_pyscf": true,
   "classical_simulation": true,
   "requested": {
     "formula": "H2O",
@@ -634,6 +635,12 @@ Example response (live capture; H2O, 7 STO-3G spatial orbitals):
   }
 }
 ```
+
+`verified_against_pyscf` is `true` for exactly five formulas — H2, LiH, H2O, CH4 and C9H8O4 —
+whose counts were cross-checked with PySCF `mol.nao` (STO-3G) in Colab. Every other formula
+returns `false` with the explanation in `notes.verification`; an unverified formula is never
+presented as machine-confirmed. The flag does not depend on how the formula is spelled (the
+lookup is by atom composition) and `active_orbitals` never changes it.
 
 The five documented examples, as this endpoint returns them (live capture):
 
@@ -934,25 +941,36 @@ GET /api/complexes/list HTTP/1.1
 Host: 127.0.0.1:8000
 ```
 
-Example response:
+Example response (live capture, one entry shown; 12 are served):
 ```json
 {
-  "complexes": [        {
-      "id": "hiv-protease-indinavir",
-      "protein_pdb": "1HSG",
-      "ligand_name": "Indinavir",
-      "ligand_code": "MK1",
-      "target_origin": "viral",
+  "complexes": [
+    {
+      "id": "egfr-erlotinib",
+      "display_name": "Human EGFR kinase domain with Erlotinib",
+      "protein_pdb": "1M17",
+      "ligand_name": "Erlotinib",
+      "ligand_code": "AQ4",
+      "target_class": "Human receptor tyrosine kinase (epidermal growth factor receptor, kinase domain)",
+      "target_origin": "human",
+      "category": "human_receptor",
+      "tier": "curated",
+      "resolution_angstrom": 2.6,
       "binding_site_type": "catalytic",
       "status": "computed"
     }
-  ]
+  ],
+  "count": 12
 }
 ```
 
 `target_origin` is `viral` or `human` and exists so a human drug target is never presented as a
-virus. `binding_site_type` is `catalytic` or `allosteric`: an allosteric inhibitor is expected
-to miss the catalytic residues, and the mechanism reports that rather than calling it a failure.
+virus. `category` is the explicit field behind the Studio's filter: `viral`, `human_enzyme` or
+`human_receptor`. `tier` is `curated` (a literature mechanism) or `contacts_only` (measured
+geometry only). `resolution_angstrom` is the RCSB `resolution_combined` value for the entries
+added in the expansion; it is `null` for the four original entries, which were not re-specified.
+`binding_site_type` is `catalytic` or `allosteric`: an allosteric inhibitor is expected to miss
+the catalytic residues, and the mechanism reports that rather than calling it a failure.
 
 #### GET /api/complexes/{id}/structure
 
@@ -981,6 +999,21 @@ to miss the catalytic residues, and the mechanism reports that rather than calli
   as a near miss rather than silently dropped.
 - Each mechanism step is tagged `computed` or `literature`. The two are never conflated, and
   no docking score or binding free energy is claimed.
+- `tier` and `curation` state which kind of entry this is. A `curated` entry returns
+  `mechanism.status: "computed"` with its steps; a `contacts_only` entry returns
+  `mechanism.status: "not_curated"` with **no steps and no residue list**, and
+  `curation: "none"` plus `curation_note: "Not curated: measured contacts only"`. The UI shows
+  that badge and hides the mechanism and catalytic panels.
+- `citations` carries the structured source of every literature statement (title, authors,
+  journal, year, DOI and/or PMID). It is present for the entries added in the expansion; the
+  four original entries keep their `sources` strings unchanged.
+- `literature_statements` is the per-sentence form of the same thing: a list of
+  `{tag: "LITERATURE", statement, source: {title, doi, pmid}}`, one item for each narrative
+  sentence and each literature-named residue. A reader can check a single claim without having
+  to accept the whole entry. It is empty for `contacts_only` entries.
+- `catalytic_residues_note` is set when a curated entry has **no literature-verified**
+  catalytic-residue list. A residue list is never written from memory, so the payload says the
+  list is absent instead of showing `0 / 0` as if it had checked something.
 - Each residue's `atom_pairs` list is capped at 12 entries for response size. Every residue
   carries `atom_pairs_truncated` (`true` when pairs were dropped), and the top level carries
   `atom_pairs_truncated` plus `atom_pairs_truncated_note`. `atom_pair_counts` is **never**
@@ -1049,6 +1082,89 @@ Example placeholder response when a curated entry has no deposited coordinates a
   "note": "Could not download the deposited coordinates for 1HSG (RCSB PDB unreachable or the entry has no PDB-format file)."
 }
 ```
+
+#### GET /api/complexes/explore/{pdb_id}
+
+- Measured contacts for **any** deposited PDB entry, with no curation at all: no mechanism
+  narrative, no catalytic-residue panel, `curation: "none"`. The payload otherwise has the
+  same shape as `GET /api/complexes/{id}/structure`, including `contact_rules`,
+  `contact_labels`, `near_miss_hydrogen_bonds`, `atom_pairs_truncated` and the viewer bytes.
+- `pdb_id` must be four characters, the first a digit (1-9), then letters or digits. The format
+  is checked before any network call: a bad identifier is `422 invalid_pdb_id`.
+- **Ligand rule (the same heavy-atom rule as the curated entries and the offline redocking
+  pipeline):** only deposited `HETATM` groups; water, ions, sugars, cofactors,
+  buffers/crystallisation additives and standard amino acids are excluded; at least 10 heavy
+  atoms must be present in the deposited coordinates. The count is measured from the file, not
+  taken from metadata. Copies of one chemical ligand (different chains or residue numbers) are
+  collapsed into one candidate carrying `instance_count` and `chains`.
+- If several chemically distinct drug-like groups remain and `?ligand=CODE` is absent, the
+  endpoint **does not choose**: it returns `status: "ligand_selection_required"` with
+  `ligand_candidates`, and the caller repeats the request with a code. An unknown code is
+  `404 ligand_not_found` with the candidate list.
+- No drug-like group at all is `404 no_drug_like_ligand` (with the exclusions that were applied).
+  RCSB unreachable or the entry has no PDB-format file is `503 structure_unavailable`; nothing
+  is invented in either case.
+- **Size caps (project choices):** 25 MB of PDB text and 60,000 protein atoms, because the
+  contact scan is O(ligand atoms x protein atoms) and a very large complex would occupy the
+  request for a long time without answering anything about its drug. Beyond either cap the
+  answer is `422 entry_too_large`.
+
+Example request:
+```http
+GET /api/complexes/explore/1M17 HTTP/1.1
+Host: 127.0.0.1:8000
+```
+
+Example response (live capture, trimmed):
+```json
+{
+  "complex_id": "explore:1M17:AQ4",
+  "display_name": "Epidermal Growth Factor Receptor tyrosine kinase domain with 4-anilinoquinazoline inhibitor erlotinib",
+  "protein_pdb": "1M17",
+  "ligand_code": "AQ4",
+  "tier": "contacts_only",
+  "curation": "none",
+  "curation_note": "Not curated: measured contacts only",
+  "resolution_angstrom": 2.6,
+  "status": "computed",
+  "binding_site_residue_count": 17,
+  "contact_summary": {
+    "salt_bridge": 0,
+    "hydrogen_bond": 3,
+    "hydrophobic": 10,
+    "close_contact": 17
+  },
+  "contact_summary_basis": "unique_residues",
+  "atom_pairs_truncated": true,
+  "ligand_candidates": [
+    {
+      "ligand_code": "AQ4",
+      "chain": "A",
+      "heavy_atom_count": 29,
+      "category": "drug_like",
+      "instance_count": 1,
+      "chains": ["A"]
+    }
+  ],
+  "ligand_selection_required": false,
+  "mechanism": {
+    "status": "not_curated",
+    "steps": [],
+    "catalytic_residues": [],
+    "note": "No curated mechanism for this entry; values below are measured geometry."
+  }
+}
+```
+
+Errors, all in the standard envelope:
+
+| status | code | when |
+| --- | --- | --- |
+| 422 | `invalid_pdb_id` | not four characters with a leading digit (checked before any request) |
+| 422 | `entry_too_large` | over 25 MB of text or 60,000 protein atoms |
+| 404 | `no_drug_like_ligand` | no non-polymer group passes the heavy-atom rule |
+| 404 | `ligand_not_found` | `?ligand=` names a code that is not a candidate here |
+| 503 | `structure_unavailable` | RCSB unreachable, or no PDB-format file |
 
 #### GET /api/complexes/{id}/interactions
 

@@ -1,8 +1,8 @@
 {
-  "version": 3,
+  "version": 4,
   "generated_by": "backend",
   "generated_at": "2026-10-10T00:00:00Z",
-  "note": "Curated drug-target complexes selected from experimentally determined structures. Ligand codes and protein titles were read from the deposited PDB files and the RCSB entry API, not from memory. Interaction values are computed at request time from the deposited coordinates. Catalytic-residue identities are literature facts and are labelled as such; the statement that a given residue is (or is not) in contact is measured.",
+  "note": "Curated drug-target complexes selected from experimentally determined structures. Each entry declares a category (viral, human_enzyme, human_receptor) and a tier: 'curated' entries carry a mechanism narrative whose statements are tagged LITERATURE and backed by a fetched citation (title, DOI/PMID), while 'contacts_only' entries carry no narrative at all. Ligand codes, titles, organisms and resolutions were read from the RCSB entry metadata, not from memory. Interaction values are computed at request time from the deposited coordinates. Catalytic-residue identities are literature facts and are labelled as such; the statement that a given residue is (or is not) in contact is measured.",
   "complexes": [
     {
       "id": "hiv-protease-indinavir",
@@ -21,12 +21,22 @@
       "mechanism_summary": "HIV-1 protease is a homodimeric aspartic protease that cleaves the viral Gag-Pol polyprotein into the mature structural and enzymatic proteins the virus needs to become infectious. Indinavir is a peptidomimetic inhibitor shaped like the substrate transition state, so it binds the same active site the polyprotein would occupy.",
       "consequence": "Because the polyprotein is never cleaved, the virus assembles non-infectious, immature virions. This is why HIV protease inhibitors must be present continuously: they block a step of maturation, not the production of viral RNA.",
       "catalytic_residues": [
-        {"label": "Asp25 (chain A)", "match": "ASP A25", "role": "Catalytic aspartate of the dyad"},
-        {"label": "Asp25' (chain B)", "match": "ASP B25", "role": "Catalytic aspartate of the dyad"}
+        {
+          "label": "Asp25 (chain A)",
+          "match": "ASP A25",
+          "role": "Catalytic aspartate of the dyad"
+        },
+        {
+          "label": "Asp25' (chain B)",
+          "match": "ASP B25",
+          "role": "Catalytic aspartate of the dyad"
+        }
       ],
       "sources": [
         "PDB entry 1HSG - Chen et al., J. Biol. Chem. 1994, 'Crystal structure at 1.9 A resolution of HIV II protease complexed with L-735,524'"
-      ]
+      ],
+      "category": "viral",
+      "tier": "curated"
     },
     {
       "id": "hiv-rt-nevirapine",
@@ -45,22 +55,60 @@
       "mechanism_summary": "Reverse transcriptase copies the viral RNA genome into DNA, which the virus then inserts into the host chromosome. Nevirapine is a non-nucleoside inhibitor: it does not look like a nucleotide and does not bind the polymerase active site. It occupies a hydrophobic allosteric pocket in the p66 subunit roughly 10 A from the catalytic residues and locks the enzyme in an inactive conformation.",
       "consequence": "With the enzyme held in that inactive shape, viral RNA is never copied into DNA and the replication cycle stops before integration. Because the site is allosteric rather than catalytic, a single point mutation in the pocket (for example K103N or Y181C) is often enough to abolish binding, which is why NNRTI resistance emerges readily.",
       "binding_pocket_residues": [
-        {"label": "Tyr181", "match": "TYR A181", "role": "Hydrophobic pocket residue, a common resistance site"},
-        {"label": "Tyr188", "match": "TYR A188", "role": "Hydrophobic pocket residue"},
-        {"label": "Trp229", "match": "TRP A229", "role": "Hydrophobic pocket residue"},
-        {"label": "Pro236", "match": "PRO A236", "role": "Pocket residue at the pocket entrance"},
-        {"label": "Lys101", "match": "LYS A101", "role": "Pocket residue"},
-        {"label": "Lys103", "match": "LYS A103", "role": "Pocket residue, the K103N resistance site"}
+        {
+          "label": "Tyr181",
+          "match": "TYR A181",
+          "role": "Hydrophobic pocket residue, a common resistance site"
+        },
+        {
+          "label": "Tyr188",
+          "match": "TYR A188",
+          "role": "Hydrophobic pocket residue"
+        },
+        {
+          "label": "Trp229",
+          "match": "TRP A229",
+          "role": "Hydrophobic pocket residue"
+        },
+        {
+          "label": "Pro236",
+          "match": "PRO A236",
+          "role": "Pocket residue at the pocket entrance"
+        },
+        {
+          "label": "Lys101",
+          "match": "LYS A101",
+          "role": "Pocket residue"
+        },
+        {
+          "label": "Lys103",
+          "match": "LYS A103",
+          "role": "Pocket residue, the K103N resistance site"
+        }
       ],
       "catalytic_residues": [
-        {"label": "Asp110 (catalytic aspartate)", "match": "ASP A110", "role": "Catalytic residue of the polymerase active site"},
-        {"label": "Asp185 (catalytic aspartate)", "match": "ASP A185", "role": "Catalytic residue of the polymerase active site"},
-        {"label": "Asp186 (catalytic aspartate)", "match": "ASP A186", "role": "Catalytic residue of the polymerase active site"}
+        {
+          "label": "Asp110 (catalytic aspartate)",
+          "match": "ASP A110",
+          "role": "Catalytic residue of the polymerase active site"
+        },
+        {
+          "label": "Asp185 (catalytic aspartate)",
+          "match": "ASP A185",
+          "role": "Catalytic residue of the polymerase active site"
+        },
+        {
+          "label": "Asp186 (catalytic aspartate)",
+          "match": "ASP A186",
+          "role": "Catalytic residue of the polymerase active site"
+        }
       ],
       "sources": [
         "PDB entry 1VRT - Ren et al., Nat. Struct. Biol. 1995, 'High resolution structures of HIV-1 RT from four RT-inhibitor complexes'",
         "PDB entry 1VRT - Ren et al., Nat. Struct. Biol. 1995, 'Mechanism of inhibition of HIV-1 reverse transcriptase by non-nucleoside inhibitors'"
-      ]
+      ],
+      "category": "viral",
+      "tier": "curated"
     },
     {
       "id": "influenza-neuraminidase-oseltamivir",
@@ -79,16 +127,42 @@
       "mechanism_summary": "Neuraminidase is the influenza enzyme that clips sialic acid residues off the surface of the infected cell and off newly budded virions. That clipping is what releases progeny virions so they can spread. Oseltamivir carboxylate is a transition-state analogue: its cyclohexene scaffold and carboxylate present the same features the enzyme recognises in its sialic-acid substrate, so it binds the catalytic site.",
       "consequence": "New virions stay tethered to the infected cell and clump together instead of spreading, so the infection does not amplify efficiently. The enzyme is blocked, not the virus's entry or its genome copying.",
       "catalytic_residues": [
-        {"label": "Arg118 (catalytic arginine)", "match": "ARG A118", "role": "Catalytic arginine triad member"},
-        {"label": "Asp151 (catalytic aspartate)", "match": "ASP A151", "role": "Catalytic residue"},
-        {"label": "Arg152 (catalytic arginine)", "match": "ARG A152", "role": "Catalytic residue"},
-        {"label": "Arg292 (catalytic arginine)", "match": "ARG A292", "role": "Catalytic arginine triad member"},
-        {"label": "Arg371 (catalytic arginine)", "match": "ARG A371", "role": "Catalytic arginine triad member"},
-        {"label": "Tyr406 (catalytic tyrosine)", "match": "TYR A406", "role": "Catalytic residue"}
+        {
+          "label": "Arg118 (catalytic arginine)",
+          "match": "ARG A118",
+          "role": "Catalytic arginine triad member"
+        },
+        {
+          "label": "Asp151 (catalytic aspartate)",
+          "match": "ASP A151",
+          "role": "Catalytic residue"
+        },
+        {
+          "label": "Arg152 (catalytic arginine)",
+          "match": "ARG A152",
+          "role": "Catalytic residue"
+        },
+        {
+          "label": "Arg292 (catalytic arginine)",
+          "match": "ARG A292",
+          "role": "Catalytic arginine triad member"
+        },
+        {
+          "label": "Arg371 (catalytic arginine)",
+          "match": "ARG A371",
+          "role": "Catalytic arginine triad member"
+        },
+        {
+          "label": "Tyr406 (catalytic tyrosine)",
+          "match": "TYR A406",
+          "role": "Catalytic residue"
+        }
       ],
       "sources": [
         "PDB entry 2HU4 - Russell et al., Nature 2006, 'The structure of H5N1 avian influenza neuraminidase suggests new opportunities for drug design'"
-      ]
+      ],
+      "category": "viral",
+      "tier": "curated"
     },
     {
       "id": "ace-lisinopril",
@@ -107,14 +181,449 @@
       "mechanism_summary": "Angiotensin-converting enzyme is a human zinc metallopeptidase that converts angiotensin I into the vasoconstrictor angiotensin II and degrades bradykinin. Lisinopril carries a carboxylate that coordinates the catalytic zinc ion and occupies the substrate-binding channel.",
       "consequence": "With the enzyme blocked, angiotensin II production falls and bradykinin is preserved, which lowers blood pressure. This is a human drug target, included as an example of the same method applied to a non-viral enzyme. The structure also contains a zinc ion, chloride ions and a glycated lysine, all of which are excluded from the ligand analysis because they are not the drug.",
       "catalytic_residues": [
-        {"label": "Glu384 (catalytic glutamate)", "match": "GLU A384", "role": "Catalytic residue"},
-        {"label": "His383 (zinc ligand)", "match": "HIS A383", "role": "Zinc-coordinating residue"},
-        {"label": "His387 (zinc ligand)", "match": "HIS A387", "role": "Zinc-coordinating residue"},
-        {"label": "Glu411 (zinc ligand)", "match": "GLU A411", "role": "Zinc-coordinating residue"}
+        {
+          "label": "Glu384 (catalytic glutamate)",
+          "match": "GLU A384",
+          "role": "Catalytic residue"
+        },
+        {
+          "label": "His383 (zinc ligand)",
+          "match": "HIS A383",
+          "role": "Zinc-coordinating residue"
+        },
+        {
+          "label": "His387 (zinc ligand)",
+          "match": "HIS A387",
+          "role": "Zinc-coordinating residue"
+        },
+        {
+          "label": "Glu411 (zinc ligand)",
+          "match": "GLU A411",
+          "role": "Zinc-coordinating residue"
+        }
       ],
       "sources": [
         "PDB entry 1O86 - Natesh et al., Nature 2003, 'Crystal structure of the human angiotensin-converting enzyme-lisinopril complex'"
+      ],
+      "category": "human_enzyme",
+      "tier": "curated"
+    },
+    {
+      "id": "egfr-erlotinib",
+      "display_name": "Human EGFR kinase domain with Erlotinib",
+      "protein_pdb": "1M17",
+      "protein_title": "Epidermal Growth Factor Receptor tyrosine kinase domain with 4-anilinoquinazoline inhibitor erlotinib",
+      "target_origin": "human",
+      "category": "human_receptor",
+      "tier": "curated",
+      "source_organism": "Homo sapiens",
+      "resolution_angstrom": 2.6,
+      "binding_site_type": "catalytic",
+      "ligand_name": "Erlotinib",
+      "ligand_code": "AQ4",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Human receptor tyrosine kinase (epidermal growth factor receptor, kinase domain)",
+      "drug_class": "ATP-competitive 4-anilinoquinazoline inhibitor",
+      "mechanism_summary": "The epidermal growth factor receptor (EGFR) is a receptor tyrosine kinase whose kinase domain is active without a phosphorylation event, which the authors note distinguishes the EGFR family from other receptor tyrosine kinases. The deposited structure is the EGFR kinase domain, including forty residues of the carboxyl-terminal tail, determined both with and without the 4-anilinoquinazoline inhibitor erlotinib (OSI-774, CP-358,774) at 2.6 A.",
+      "consequence": "Erlotinib occupies the kinase domain that carries out the receptor's own phosphorylation. The paper describes erlotinib as an EGFR-specific anti-cancer agent that was in Phase III clinical trials when the structure was determined, and discusses carboxyl-terminal tail contacts in relation to receptor oligomerisation.",
+      "citations": [
+        {
+          "title": "Structure of the epidermal growth factor receptor kinase domain alone and in complex with a 4-anilinoquinazoline inhibitor",
+          "authors": "Stamos J, Sliwkowski MX, Eigenbrot C.",
+          "journal": "Journal of Biological Chemistry",
+          "year": 2002,
+          "doi": "10.1074/jbc.M207135200",
+          "pmid": "12196540"
+        }
+      ],
+      "sources": [
+        "Stamos J, Sliwkowski MX, Eigenbrot C. Structure of the epidermal growth factor receptor kinase domain alone and in complex with a 4-anilinoquinazoline inhibitor Journal of Biological Chemistry 2002. DOI 10.1074/jbc.M207135200; PMID 12196540"
+      ],
+      "literature_statements": [
+        {
+          "tag": "LITERATURE",
+          "statement": "The epidermal growth factor receptor (EGFR) is a receptor tyrosine kinase whose kinase domain is active without a phosphorylation event, which the authors note distinguishes the EGFR family from other receptor tyrosine kinases. The deposited structure is the EGFR kinase domain, including forty residues of the carboxyl-terminal tail, determined both with and without the 4-anilinoquinazoline inhibitor erlotinib (OSI-774, CP-358,774) at 2.6 A.",
+          "source": {
+            "title": "Structure of the epidermal growth factor receptor kinase domain alone and in complex with a 4-anilinoquinazoline inhibitor",
+            "doi": "10.1074/jbc.M207135200",
+            "pmid": "12196540"
+          }
+        },
+        {
+          "tag": "LITERATURE",
+          "statement": "Erlotinib occupies the kinase domain that carries out the receptor's own phosphorylation. The paper describes erlotinib as an EGFR-specific anti-cancer agent that was in Phase III clinical trials when the structure was determined, and discusses carboxyl-terminal tail contacts in relation to receptor oligomerisation.",
+          "source": {
+            "title": "Structure of the epidermal growth factor receptor kinase domain alone and in complex with a 4-anilinoquinazoline inhibitor",
+            "doi": "10.1074/jbc.M207135200",
+            "pmid": "12196540"
+          }
+        }
       ]
+    },
+    {
+      "id": "abl-imatinib",
+      "display_name": "Human Abl kinase domain with Imatinib",
+      "protein_pdb": "2HYY",
+      "protein_title": "Human Abl kinase domain in complex with imatinib (STI571, Glivec)",
+      "target_origin": "human",
+      "category": "human_enzyme",
+      "tier": "curated",
+      "source_organism": "Homo sapiens",
+      "resolution_angstrom": 2.4,
+      "binding_site_type": "catalytic",
+      "ligand_name": "Imatinib (STI571, Glivec)",
+      "ligand_code": "STI",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Human non-receptor tyrosine kinase (Abl kinase domain)",
+      "drug_class": "ATP-competitive tyrosine kinase inhibitor",
+      "mechanism_summary": "Chronic myelogenous leukaemia results from the Bcr-Abl oncoprotein, whose Abl tyrosine kinase domain is constitutively activated. Imatinib (STI571, Glivec) is an Abl kinase inhibitor, and the deposited structure is the human Abl kinase domain in complex with it at 2.4 A.",
+      "consequence": "The authors report that most chronic-phase CML patients treated with imatinib as first-line therapy maintain durable responses, while patients who progressed to advanced-stage disease frequently fail to respond or lose their response through drug-resistant Abl mutants, of which more than 40 point mutations had been observed. The structures were determined to understand that resistance and to support inhibitor design.",
+      "citations": [
+        {
+          "title": "Structural biology contributions to the discovery of drugs to treat chronic myelogenous leukaemia",
+          "authors": "Cowan-Jacob SW, Fendrich G, Floersheimer A, et al.",
+          "journal": "Acta Crystallographica Section D",
+          "year": 2007,
+          "doi": "10.1107/S0907444906047287",
+          "pmid": "17164530",
+          "pmcid": "PMC2483489"
+        }
+      ],
+      "sources": [
+        "Cowan-Jacob SW, Fendrich G, Floersheimer A, et al. Structural biology contributions to the discovery of drugs to treat chronic myelogenous leukaemia Acta Crystallographica Section D 2007. DOI 10.1107/S0907444906047287; PMID 17164530; PMCID PMC2483489"
+      ],
+      "literature_statements": [
+        {
+          "tag": "LITERATURE",
+          "statement": "Chronic myelogenous leukaemia results from the Bcr-Abl oncoprotein, whose Abl tyrosine kinase domain is constitutively activated. Imatinib (STI571, Glivec) is an Abl kinase inhibitor, and the deposited structure is the human Abl kinase domain in complex with it at 2.4 A.",
+          "source": {
+            "title": "Structural biology contributions to the discovery of drugs to treat chronic myelogenous leukaemia",
+            "doi": "10.1107/S0907444906047287",
+            "pmid": "17164530"
+          }
+        },
+        {
+          "tag": "LITERATURE",
+          "statement": "The authors report that most chronic-phase CML patients treated with imatinib as first-line therapy maintain durable responses, while patients who progressed to advanced-stage disease frequently fail to respond or lose their response through drug-resistant Abl mutants, of which more than 40 point mutations had been observed. The structures were determined to understand that resistance and to support inhibitor design.",
+          "source": {
+            "title": "Structural biology contributions to the discovery of drugs to treat chronic myelogenous leukaemia",
+            "doi": "10.1107/S0907444906047287",
+            "pmid": "17164530"
+          }
+        }
+      ]
+    },
+    {
+      "id": "er-alpha-hydroxytamoxifen",
+      "display_name": "Human estrogen receptor alpha with 4-Hydroxytamoxifen",
+      "protein_pdb": "3ERT",
+      "protein_title": "Human estrogen receptor alpha ligand-binding domain in complex with 4-hydroxytamoxifen",
+      "target_origin": "human",
+      "category": "human_receptor",
+      "tier": "curated",
+      "source_organism": "Homo sapiens",
+      "resolution_angstrom": 1.9,
+      "binding_site_type": "catalytic",
+      "ligand_name": "4-Hydroxytamoxifen",
+      "ligand_code": "OHT",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Human nuclear receptor (estrogen receptor alpha, ligand-binding domain)",
+      "drug_class": "Antagonist/selective estrogen receptor modulator metabolite",
+      "mechanism_summary": "Estrogen receptor alpha is a nuclear receptor whose ligand-dependent activation of transcription is mediated by interactions with coactivators. The deposited structure is the human estrogen receptor alpha ligand-binding domain bound to the antagonist 4-hydroxytamoxifen (OHT).",
+      "consequence": "In the OHT complex, helix 12 occludes the coactivator-recognition groove by mimicking the interactions of the coactivator NR-box peptide, which is how the antagonist blocks coactivator binding. The authors describe this as an autoinhibitory helix-12 conformation and identify two distinct structural mechanisms by which OHT promotes it.",
+      "citations": [
+        {
+          "title": "The structural basis of estrogen receptor/coactivator recognition and the antagonism of this interaction by tamoxifen",
+          "authors": "Shiau AK, Barstad D, Loria PM, et al.",
+          "journal": "Cell",
+          "year": 1998,
+          "doi": "10.1016/S0092-8674(00)81717-1",
+          "pmid": "9875847"
+        }
+      ],
+      "sources": [
+        "Shiau AK, Barstad D, Loria PM, et al. The structural basis of estrogen receptor/coactivator recognition and the antagonism of this interaction by tamoxifen Cell 1998. DOI 10.1016/S0092-8674(00)81717-1; PMID 9875847"
+      ],
+      "literature_statements": [
+        {
+          "tag": "LITERATURE",
+          "statement": "Estrogen receptor alpha is a nuclear receptor whose ligand-dependent activation of transcription is mediated by interactions with coactivators. The deposited structure is the human estrogen receptor alpha ligand-binding domain bound to the antagonist 4-hydroxytamoxifen (OHT).",
+          "source": {
+            "title": "The structural basis of estrogen receptor/coactivator recognition and the antagonism of this interaction by tamoxifen",
+            "doi": "10.1016/S0092-8674(00)81717-1",
+            "pmid": "9875847"
+          }
+        },
+        {
+          "tag": "LITERATURE",
+          "statement": "In the OHT complex, helix 12 occludes the coactivator-recognition groove by mimicking the interactions of the coactivator NR-box peptide, which is how the antagonist blocks coactivator binding. The authors describe this as an autoinhibitory helix-12 conformation and identify two distinct structural mechanisms by which OHT promotes it.",
+          "source": {
+            "title": "The structural basis of estrogen receptor/coactivator recognition and the antagonism of this interaction by tamoxifen",
+            "doi": "10.1016/S0092-8674(00)81717-1",
+            "pmid": "9875847"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ache-donepezil",
+      "display_name": "Human acetylcholinesterase with Donepezil",
+      "protein_pdb": "4EY7",
+      "protein_title": "Crystal Structure of Recombinant Human Acetylcholinesterase in Complex with Donepezil",
+      "target_origin": "human",
+      "category": "human_enzyme",
+      "tier": "curated",
+      "source_organism": "Homo sapiens",
+      "resolution_angstrom": 2.35,
+      "binding_site_type": "catalytic",
+      "ligand_name": "Donepezil",
+      "ligand_code": "E20",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Human serine hydrolase (acetylcholinesterase)",
+      "drug_class": "Acetylcholinesterase inhibitor",
+      "mechanism_summary": "Human acetylcholinesterase is described by the authors as a significant target for therapeutic drugs. The deposited structure is human acetylcholinesterase in complex with donepezil, an Alzheimer's disease drug; the paper reports that donepezil binds human acetylcholinesterase differently from the Torpedo enzyme.",
+      "consequence": "The authors present these structures of the human enzyme as a more accurate platform for drug development than the previously available ones, precisely because the human and Torpedo enzymes bind donepezil differently. The abstract does not quantify a clinical effect, so none is claimed here.",
+      "citations": [
+        {
+          "title": "Structures of human acetylcholinesterase in complex with pharmacologically important ligands",
+          "authors": "Cheung J, Rudolph MJ, Burshteyn F, et al.",
+          "journal": "Journal of Medicinal Chemistry",
+          "year": 2012,
+          "doi": "10.1021/jm300871x",
+          "pmid": "23035744"
+        }
+      ],
+      "sources": [
+        "Cheung J, Rudolph MJ, Burshteyn F, et al. Structures of human acetylcholinesterase in complex with pharmacologically important ligands Journal of Medicinal Chemistry 2012. DOI 10.1021/jm300871x; PMID 23035744"
+      ],
+      "literature_statements": [
+        {
+          "tag": "LITERATURE",
+          "statement": "Human acetylcholinesterase is described by the authors as a significant target for therapeutic drugs. The deposited structure is human acetylcholinesterase in complex with donepezil, an Alzheimer's disease drug; the paper reports that donepezil binds human acetylcholinesterase differently from the Torpedo enzyme.",
+          "source": {
+            "title": "Structures of human acetylcholinesterase in complex with pharmacologically important ligands",
+            "doi": "10.1021/jm300871x",
+            "pmid": "23035744"
+          }
+        },
+        {
+          "tag": "LITERATURE",
+          "statement": "The authors present these structures of the human enzyme as a more accurate platform for drug development than the previously available ones, precisely because the human and Torpedo enzymes bind donepezil differently. The abstract does not quantify a clinical effect, so none is claimed here.",
+          "source": {
+            "title": "Structures of human acetylcholinesterase in complex with pharmacologically important ligands",
+            "doi": "10.1021/jm300871x",
+            "pmid": "23035744"
+          }
+        }
+      ]
+    },
+    {
+      "id": "pde5-sildenafil",
+      "display_name": "Human phosphodiesterase-5 with Sildenafil",
+      "protein_pdb": "2H42",
+      "protein_title": "Crystal structure of PDE5 in complex with sildenafil",
+      "target_origin": "human",
+      "category": "human_enzyme",
+      "tier": "curated",
+      "source_organism": "Homo sapiens",
+      "resolution_angstrom": 2.3,
+      "binding_site_type": "catalytic",
+      "ligand_name": "Sildenafil",
+      "ligand_code": "VIA",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Human phosphodiesterase (PDE5A1 catalytic domain)",
+      "drug_class": "Competitive cGMP phosphodiesterase inhibitor",
+      "catalytic_residues": [
+        {
+          "label": "Gly659",
+          "match": "GLY A659",
+          "role": "Invariant glycine immediately preceding the H-loop; the authors report it is critical for optimal substrate affinity and catalytic activity"
+        }
+      ],
+      "mechanism_summary": "Phosphodiesterase-5 (PDE5) is the target of sildenafil, vardenafil and tadalafil, drugs used to treat erectile dysfunction and pulmonary hypertension. The deposited structure is a fully active catalytic domain of PDE5A1 in complex with sildenafil.",
+      "consequence": "Inhibitor binding reorganises the active-site H-loop (residues 660-683), which has four different conformations across the reported structures and migrates 7-35 A. The authors' mutagenesis and kinetic analyses identify the H-loop as important for substrate recognition.",
+      "citations": [
+        {
+          "title": "Multiple conformations of phosphodiesterase-5: implications for enzyme function and drug development",
+          "authors": "Wang H, Liu Y, Huai Q, et al.",
+          "journal": "Journal of Biological Chemistry",
+          "year": 2006,
+          "doi": "10.1074/jbc.M512527200",
+          "pmid": "16735511"
+        }
+      ],
+      "sources": [
+        "Wang H, Liu Y, Huai Q, et al. Multiple conformations of phosphodiesterase-5: implications for enzyme function and drug development Journal of Biological Chemistry 2006. DOI 10.1074/jbc.M512527200; PMID 16735511"
+      ],
+      "literature_statements": [
+        {
+          "tag": "LITERATURE",
+          "statement": "Phosphodiesterase-5 (PDE5) is the target of sildenafil, vardenafil and tadalafil, drugs used to treat erectile dysfunction and pulmonary hypertension. The deposited structure is a fully active catalytic domain of PDE5A1 in complex with sildenafil.",
+          "source": {
+            "title": "Multiple conformations of phosphodiesterase-5: implications for enzyme function and drug development",
+            "doi": "10.1074/jbc.M512527200",
+            "pmid": "16735511"
+          }
+        },
+        {
+          "tag": "LITERATURE",
+          "statement": "Inhibitor binding reorganises the active-site H-loop (residues 660-683), which has four different conformations across the reported structures and migrates 7-35 A. The authors' mutagenesis and kinetic analyses identify the H-loop as important for substrate recognition.",
+          "source": {
+            "title": "Multiple conformations of phosphodiesterase-5: implications for enzyme function and drug development",
+            "doi": "10.1074/jbc.M512527200",
+            "pmid": "16735511"
+          }
+        },
+        {
+          "tag": "LITERATURE",
+          "statement": "Gly659: Invariant glycine immediately preceding the H-loop; the authors report it is critical for optimal substrate affinity and catalytic activity",
+          "source": {
+            "title": "Multiple conformations of phosphodiesterase-5: implications for enzyme function and drug development",
+            "doi": "10.1074/jbc.M512527200",
+            "pmid": "16735511"
+          }
+        }
+      ]
+    },
+    {
+      "id": "ca2-acetazolamide",
+      "display_name": "Human carbonic anhydrase II with Acetazolamide",
+      "protein_pdb": "3HS4",
+      "protein_title": "Human carbonic anhydrase II complexed with acetazolamide",
+      "target_origin": "human",
+      "category": "human_enzyme",
+      "tier": "curated",
+      "source_organism": "Homo sapiens",
+      "resolution_angstrom": 1.1,
+      "binding_site_type": "catalytic",
+      "ligand_name": "Acetazolamide",
+      "ligand_code": "AZM",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Human zinc metalloenzyme (carbonic anhydrase II)",
+      "drug_class": "Sulfonamide carbonic anhydrase inhibitor",
+      "mechanism_summary": "The deposited structure is human carbonic anhydrase II in complex with the sulfonamide inhibitor acetazolamide (AZM), determined at 1.1 A. The authors report that AZM binds directly to the zinc and makes several key interactions with active-site residues.",
+      "consequence": "Because AZM binds directly to the zinc, the active site is occupied at the metal itself. The same high-resolution structure showed a glycerol molecule adjacent to AZM in the active site and two additional AZM molecules adventitiously bound on the enzyme surface, which the authors discuss in relation to isozyme-specific inhibitor design.",
+      "citations": [
+        {
+          "title": "High-resolution structure of human carbonic anhydrase II complexed with acetazolamide reveals insights into inhibitor drug design",
+          "authors": "Sippel KH, Robbins AH, Domsic J, et al.",
+          "journal": "Acta Crystallographica Section F",
+          "year": 2009,
+          "doi": "10.1107/S1744309109036665",
+          "pmid": "19851004",
+          "pmcid": "PMC2765883"
+        }
+      ],
+      "sources": [
+        "Sippel KH, Robbins AH, Domsic J, et al. High-resolution structure of human carbonic anhydrase II complexed with acetazolamide reveals insights into inhibitor drug design Acta Crystallographica Section F 2009. DOI 10.1107/S1744309109036665; PMID 19851004; PMCID PMC2765883"
+      ],
+      "literature_statements": [
+        {
+          "tag": "LITERATURE",
+          "statement": "The deposited structure is human carbonic anhydrase II in complex with the sulfonamide inhibitor acetazolamide (AZM), determined at 1.1 A. The authors report that AZM binds directly to the zinc and makes several key interactions with active-site residues.",
+          "source": {
+            "title": "High-resolution structure of human carbonic anhydrase II complexed with acetazolamide reveals insights into inhibitor drug design",
+            "doi": "10.1107/S1744309109036665",
+            "pmid": "19851004"
+          }
+        },
+        {
+          "tag": "LITERATURE",
+          "statement": "Because AZM binds directly to the zinc, the active site is occupied at the metal itself. The same high-resolution structure showed a glycerol molecule adjacent to AZM in the active site and two additional AZM molecules adventitiously bound on the enzyme surface, which the authors discuss in relation to isozyme-specific inhibitor design.",
+          "source": {
+            "title": "High-resolution structure of human carbonic anhydrase II complexed with acetazolamide reveals insights into inhibitor drug design",
+            "doi": "10.1107/S1744309109036665",
+            "pmid": "19851004"
+          }
+        }
+      ]
+    },
+    {
+      "id": "hmgcr-atorvastatin",
+      "display_name": "Human HMG-CoA reductase with Atorvastatin",
+      "protein_pdb": "1HWK",
+      "protein_title": "Complex of the catalytic portion of human HMG-CoA reductase with atorvastatin",
+      "target_origin": "human",
+      "category": "human_enzyme",
+      "tier": "curated",
+      "source_organism": "Homo sapiens",
+      "resolution_angstrom": 2.22,
+      "binding_site_type": "catalytic",
+      "ligand_name": "Atorvastatin",
+      "ligand_code": "117",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Human enzyme (HMG-CoA reductase, catalytic portion)",
+      "drug_class": "Statin, competitive HMG-CoA reductase inhibitor",
+      "mechanism_summary": "HMG-CoA reductase catalyses the committed step in cholesterol biosynthesis, and statins inhibit it with inhibition constants in the nanomolar range. The deposited structure is the catalytic portion of human HMG-CoA reductase in complex with atorvastatin.",
+      "consequence": "The statins occupy a portion of the HMG-CoA binding site and so block access of the substrate to the active site, which is a competitive mechanism rather than binding elsewhere on the enzyme. The authors also report that several catalytically relevant residues near the carboxyl terminus are disordered in the enzyme-statin complexes and would sterically hinder statin binding if they were not flexible.",
+      "citations": [
+        {
+          "title": "Structural mechanism for statin inhibition of HMG-CoA reductase",
+          "authors": "Istvan ES, Deisenhofer J.",
+          "journal": "Science",
+          "year": 2001,
+          "doi": "10.1126/science.1059344",
+          "pmid": "11349148"
+        }
+      ],
+      "sources": [
+        "Istvan ES, Deisenhofer J. Structural mechanism for statin inhibition of HMG-CoA reductase Science 2001. DOI 10.1126/science.1059344; PMID 11349148"
+      ],
+      "literature_statements": [
+        {
+          "tag": "LITERATURE",
+          "statement": "HMG-CoA reductase catalyses the committed step in cholesterol biosynthesis, and statins inhibit it with inhibition constants in the nanomolar range. The deposited structure is the catalytic portion of human HMG-CoA reductase in complex with atorvastatin.",
+          "source": {
+            "title": "Structural mechanism for statin inhibition of HMG-CoA reductase",
+            "doi": "10.1126/science.1059344",
+            "pmid": "11349148"
+          }
+        },
+        {
+          "tag": "LITERATURE",
+          "statement": "The statins occupy a portion of the HMG-CoA binding site and so block access of the substrate to the active site, which is a competitive mechanism rather than binding elsewhere on the enzyme. The authors also report that several catalytically relevant residues near the carboxyl terminus are disordered in the enzyme-statin complexes and would sterically hinder statin binding if they were not flexible.",
+          "source": {
+            "title": "Structural mechanism for statin inhibition of HMG-CoA reductase",
+            "doi": "10.1126/science.1059344",
+            "pmid": "11349148"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sars-cov2-mpro-x77",
+      "display_name": "SARS-CoV-2 main protease with X77 (experimental inhibitor, not an approved drug)",
+      "protein_pdb": "6W63",
+      "protein_title": "Structure of COVID-19 main protease bound to potent broad-spectrum non-covalent inhibitor X77",
+      "target_origin": "viral",
+      "category": "viral",
+      "tier": "contacts_only",
+      "source_organism": "Severe acute respiratory syndrome coronavirus 2",
+      "resolution_angstrom": 2.1,
+      "binding_site_type": "catalytic",
+      "ligand_name": "X77 (experimental non-covalent inhibitor, not an approved drug)",
+      "ligand_code": "X77",
+      "ligand_smiles": null,
+      "complex_type": "non_covalent_inhibitor",
+      "status": "computed",
+      "target_class": "Viral cysteine protease (SARS-CoV-2 main protease, Mpro)",
+      "drug_class": null,
+      "curation_note": "The deposited entry cites only a 'To be published' record with no DOI, so no mechanism narrative or residue list is curated for it.",
+      "sources": []
     }
   ]
 }

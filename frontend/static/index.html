@@ -89,9 +89,9 @@
             <label class="field">
               <span>
                 Noise
-                <small id="noise-hint" class="field-hint">0 = noiseless, 1 = fully noisy · range 0–1</small>
+                <small id="noise-hint" class="field-hint">not applied yet — there is no noise model; the value is accepted and echoed only</small>
               </span>
-              <input id="sim-noise" name="noise" type="number" step="0.01" min="0" max="1" value="0" aria-describedby="noise-hint" />
+              <input id="sim-noise" name="noise" type="number" step="0.01" min="0" max="1" value="0" disabled aria-describedby="noise-hint" />
             </label>
             <div class="field">
               <span></span>
@@ -280,6 +280,20 @@
       <div class="grid">
         <section class="card">
           <h3>Curated complexes</h3>
+          <div class="filter-row">
+            <label class="field">
+              <span>Category</span>
+              <select id="complex-category">
+                <option value="all" selected>All</option>
+                <option value="viral">Viral</option>
+                <option value="human">Human enzyme or receptor</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Search</span>
+              <input id="complex-search" type="search" placeholder="name or PDB ID" autocomplete="off" />
+            </label>
+          </div>
           <div id="complexes-status" class="status-line"></div>
           <div id="complexes-list" class="list"></div>
         </section>
@@ -316,6 +330,32 @@
           <p class="muted" id="complex-viewer-hint">Select a complex to load the protein together with its bound drug.</p>
         </section>
       </div>
+
+      <section class="card" style="margin-top:16px">
+        <h3>Explore any PDB entry</h3>
+        <p class="muted">
+          Measure the same crystal contacts for a deposited entry that is not curated. There is no
+          mechanism narrative and no catalytic-residue panel here: the values are measured geometry
+          only, from the entry's own coordinates. One entry per request; entries over 25 MB of PDB
+          text or 60,000 protein atoms are refused rather than left to hang.
+        </p>
+        <form id="explore-form" class="form">
+          <label class="field">
+            <span>
+              PDB ID
+              <small class="field-hint">four characters, e.g. 1M17</small>
+            </span>
+            <input id="explore-pdb" name="pdb_id" type="text" maxlength="4" placeholder="1M17" autocomplete="off" />
+          </label>
+          <div class="field">
+            <span></span>
+            <button id="explore-run" class="btn btn-primary" type="button">Measure contacts</button>
+          </div>
+        </form>
+        <div id="explore-status" class="status-line"></div>
+        <div id="explore-candidates"></div>
+        <div id="explore-detail" class="result-card" hidden></div>
+      </section>
     </section>
   </main>
 
@@ -323,6 +363,6 @@
     <span id="foot-meta"></span>
   </footer>
 
-  <script type="module" src="/app/app.js?v=12"></script>
+  <script type="module" src="/app/app.js?v=13"></script>
 </body>
 </html>

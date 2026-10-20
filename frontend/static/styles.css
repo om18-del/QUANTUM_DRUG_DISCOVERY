@@ -91,11 +91,22 @@ html, body {
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 16px;
 }
+/* Without min-width:0 a grid item's min-content width is set by its longest
+   unbreakable line -- a JSON <pre> or a long citation -- and the whole page
+   grows a horizontal scrollbar. */
+.grid > * { min-width: 0; }
 .card {
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 14px;
+}
+.card pre, .result-card pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre;
+  font-size: 11px;
 }
 .card h3 { margin: 0 0 10px; font-size: 14px; color: var(--accent); }
 
@@ -263,6 +274,33 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .list-item.selected { border-color: var(--accent); background: rgba(110, 168, 254, 0.08); }
 .list-item h4 { margin: 0 0 4px; font-size: 13px; }
 .list-item p { margin: 0; color: var(--muted); font-size: 12px; }
+
+/* Drug-Target Studio: category/search filter and the two curation tiers. */
+.filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.filter-row .field { flex: 1 1 140px; }
+.list-item { min-width: 0; }
+.list-item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.list-item-head h4 { min-width: 0; overflow-wrap: anywhere; }
+.citation-list { overflow-wrap: anywhere; }
+.tier-badge {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--muted);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+.tier-badge.curated { color: var(--ok); border-color: var(--ok); background: rgba(111, 207, 151, 0.10); }
+.tier-badge.contacts_only { color: var(--warn); border-color: var(--warn); background: rgba(242, 201, 74, 0.10); }
+.tier-badge.uncurated { color: var(--warn); border-color: var(--warn); background: rgba(242, 201, 74, 0.10); }
+.citation-list { margin: 6px 0 0; padding-left: 18px; color: var(--muted); font-size: 12px; }
+.citation-list li { margin-bottom: 4px; }
+.citation-list a { color: var(--accent); }
+.candidate-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.candidate-btn { font-family: inherit; cursor: pointer; }
+.empty-filter-note { color: var(--muted); font-size: 12px; }
 
 .viewer-wrap {
   background: radial-gradient(circle at 50% 35%, #16203a 0%, #0b0f1c 55%, #05070d 100%);

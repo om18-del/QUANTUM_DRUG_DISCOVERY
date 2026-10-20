@@ -6,14 +6,16 @@ the neutral atomic numbers. Nothing is copied from the implementation, so an
 arithmetic bug in ``app.core.resources`` cannot define its own expected answer.
 
 What these tests do **not** do is confirm the basis itself: the counts are
-counted by rule, and the offline PySCF ``mol.nao`` cross-check in
-``scripts/precompute_hamiltonians.ipynb`` has never run here. The payload says
-so (``verified_against_pyscf: False``), and a test below asserts that it does.
+counted by rule. Five formulas (H2, LiH, H2O, CH4, C9H8O4) were separately
+cross-checked against PySCF ``mol.nao`` in Colab and are listed in
+``PYSCF_VERIFIED_COUNTS``; those payloads say ``verified_against_pyscf: True``.
+Every other formula stays ``False``, and tests below assert both cases.
 """
 
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
@@ -21,6 +23,7 @@ from app.core.resources import (
     ATOMIC_NUMBERS,
     INTERACTIVE_CAP_QUBITS,
     LAPTOP_STATEVECTOR_CEILING_QUBITS,
+    PYSCF_VERIFIED_COUNTS,
     STO3G_BASIS_FUNCTIONS_PER_ATOM,
     ActiveOrbitalsError,
     InvalidFormulaError,
@@ -29,6 +32,7 @@ from app.core.resources import (
     electron_count,
     estimate_resources,
     format_byte_count,
+    normalise_formula,
     sto3g_spatial_orbitals,
 )
 
@@ -159,7 +163,7 @@ def test_no_invented_pauli_or_circuit_numbers() -> None:
 
 
 def test_states_what_it_is_and_is_not() -> None:
-    payload = estimate_resources("H2O")
+    payload = estimate_resources("C2H6O")
 
     assert payload["basis"] == "STO-3G"
     assert payload["method"] == "computed_by_formula"
@@ -167,13 +171,65 @@ def test_states_what_it_is_and_is_not() -> None:
     assert "no PySCF run" in payload["method_note"]
     assert "project limits and rough estimates" in payload["method_note"]
     assert "not modelled" in payload["notes"]["spin_and_charge"]
-    # The basis table is counted by rule and has never been machine-checked here.
+    # Ethanol is not one of the five cross-checked formulas.
     assert payload["verified_against_pyscf"] is False
     assert payload["feasibility"]["interactive_cap_qubits"] == INTERACTIVE_CAP_QUBITS
     assert (
         payload["feasibility"]["laptop_statevector_ceiling_qubits"]
         == LAPTOP_STATEVECTOR_CEILING_QUBITS
     )
+
+
+def test_the_five_pyscf_verified_formulas_are_flagged_true() -> None:
+    """Exactly the five recorded formulas report verification, with matching counts."""
+    assert set(PYSCF_VERIFIED_COUNTS) == {"H2", "LiH", "H2O", "CH4", "C9H8O4"}
+
+    for formula, recorded in PYSCF_VERIFIED_COUNTS.items():
+        payload = estimate_resources(formula)
+        assert payload["verified_against_pyscf"] is True, formula
+        assert payload["n_spatial_orbitals"] == recorded["spatial_orbitals"], formula
+        assert payload["n_electrons"] == recorded["electrons"], formula
+        assert payload["subject"]["normalised_formula"] == formula
+        # One canonicaliser: the payload field and the helper agree.
+        assert normalise_formula(formula) == formula
+        # The note names the check that was actually done, and invents no version.
+        note = payload["notes"]["verification"]
+        assert "PySCF mol.nao" in note
+        assert "No PySCF version was recorded" in note
+        assert not re.search(r"PySCF\s+v?\d", note)
+
+
+def test_unverified_formulas_stay_false_with_the_explanation() -> None:
+    for formula in ("C2H6O", "C6H6", "CH3Cl", "Ne", "NaCl"):
+        payload = estimate_resources(formula)
+        assert payload["verified_against_pyscf"] is False, formula
+        assert "unverified" in payload["notes"]["verification"], formula
+
+
+def test_verification_ignores_how_the_formula_is_spelled() -> None:
+    """The lookup is on the normalised (Hill-order) formula, not the raw text."""
+    assert normalise_formula("OH2") == "H2O"
+    assert normalise_formula("H4C") == "CH4"
+    assert normalise_formula("H2C9O4H6") == "C9H8O4"
+    # A verified formula keeps its recorded spelling even when Hill order would
+    # have spelled it differently.
+    assert normalise_formula("HLi") == "LiH"
+    assert normalise_formula("C6H6") == "C6H6"
+    assert estimate_resources("C6H6")["subject"]["normalised_formula"] == "C6H6"
+
+    renamed_water = estimate_resources("OH2")
+    assert renamed_water["subject"]["formula"] == "OH2"
+    assert renamed_water["subject"]["normalised_formula"] == "H2O"
+    assert renamed_water["n_spatial_orbitals"] == 7
+    assert renamed_water["verified_against_pyscf"] is True
+
+
+def test_active_space_does_not_change_the_verification_flag() -> None:
+    for formula in ("H2O", "C2H6O"):
+        plain = estimate_resources(formula)
+        with_active = estimate_resources(formula, active_orbitals=2)
+        assert with_active["verified_against_pyscf"] is plain["verified_against_pyscf"], formula
+        assert with_active["active_space"] is not None
 
 
 def test_verdict_boundaries() -> None:

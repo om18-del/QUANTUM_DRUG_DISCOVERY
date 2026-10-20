@@ -74,6 +74,34 @@ The viewer panels load `3Dmol-min.js` from `https://3dmol.csb.pitt.edu`, so the 
 that host to be reachable; the API itself never makes a network call at request time for the
 quantum panels.
 
+## Docking validation (offline redocking, Colab)
+
+`scripts/redock_validation.py` redocks known drug-protein complexes with AutoDock Vina and
+measures how close every docked pose is to the deposited crystal pose. Vina and meeko publish no
+Windows wheel, so it runs where they do — Google Colab (or Linux):
+
+1. Open `scripts/redock_validation.ipynb` in Colab.
+2. Run the install cell: `pip install "requests>=2.31" "numpy>=1.26" "rdkit" "vina==1.2.7" "meeko==0.8.0"`.
+3. Run the notebook end to end. It writes `redock_validation.json` for the three default targets
+   (`1VRT`, `2HU4`, `1HSG`) with **one fixed setting for all of them**
+   (`--exhaustiveness 16 --seed 7`, `num_modes 9`, a 22 A box on the crystal ligand centroid).
+4. Save that file as `app/data/docking/redock_validation.json` in this repository and check it with
+   `python scripts/validate_docking_file.py` (pass another path as its argument if you saved it
+   elsewhere). The notebook's last cell downloads the file and prints the same command.
+
+The ligand is identified from the RCSB metadata — the single non-polymer entity with at least 10
+heavy atoms, so 1VRT's magnesium ion is excluded rather than guessed away — and a target whose
+ligand cannot be identified with certainty is recorded as failed instead of docked. Bond orders
+come from the RCSB chemical component definition, and the RMSD is heavy-atom, symmetry-aware and
+computed **without re-alignment**.
+
+What this does **not** show: the box is centred on the true crystal site, so redocking is an
+**easy** test, and a Vina score is a **prediction, not measured binding** — not a Kd, Ki or IC50.
+Results cover the three complexes only. Nothing is retuned per target and no run is repeated
+until it passes: a target that fails is written out as `status: "failed"` with its reason.
+**The result file is not in this repository — the pipeline has not been run yet** (see
+LIMITATIONS.md), and Part B is what will produce it and later serve it to the app.
+
 ## Important rules
 
 - No fabricated data.

@@ -1,12 +1,13 @@
 """STO-3G spatial-orbital counts derived from a molecular formula.
 
-FORMULA-DERIVED, NOT YET CONFIRMED AGAINST PySCF. The expected totals here are
-computed inside this file by independent routes (a separately written formula
-parser, plus hand-read atom counts summed against a separately transcribed basis
-table) rather than copied from the implementation. That guards against a bug in
-``app.core.resources``; it does **not** verify the basis itself. Nothing here has
-been checked against ``mol.nao``, because the offline PySCF notebook
-(``scripts/precompute_hamiltonians.ipynb``) has never been run.
+FIVE FORMULAS ARE CONFIRMED AGAINST PySCF, THE REST ARE COUNTED BY RULE. The
+expected totals here are computed inside this file by independent routes (a
+separately written formula parser, plus hand-read atom counts summed against a
+separately transcribed basis table) rather than copied from the implementation.
+That guards against a bug in ``app.core.resources``; it does **not** verify the
+basis itself. The five totals that were checked against ``mol.nao`` in Colab are
+listed in ``PYSCF_VERIFIED_COUNTS``, and only those formulas report
+``verified_against_pyscf: True``.
 """
 
 from __future__ import annotations
@@ -84,7 +85,7 @@ def test_total_matches_two_independent_routes(formula: str) -> None:
     print(
         f"STO-3G {formula}: {result['atom_counts']} -> "
         f"{result['basis_functions_per_element']} = {result['spatial_orbitals']} "
-        f"spatial orbitals (unverified against PySCF)"
+        f"spatial orbitals (verified_against_pyscf={result['verified_against_pyscf']})"
     )
 
     assert result["atom_counts"] == FORMULA_ATOM_COUNTS[formula]
@@ -105,10 +106,17 @@ def test_formula_parser_handles_implicit_and_explicit_counts() -> None:
     assert parse_formula_counts("CH3Cl") == {"C": 1, "H": 3, "Cl": 1}
 
 
-def test_result_is_flagged_as_unverified() -> None:
-    result = sto3g_spatial_orbitals("H2O")
-    assert result["verified_against_pyscf"] is False
-    assert "PySCF" in result["note"]
+def test_result_flag_follows_the_pyscf_table() -> None:
+    """Verified only for the five recorded formulas; other formulas stay unverified."""
+    for formula in ("H2", "LiH", "H2O", "CH4", "C9H8O4"):
+        result = sto3g_spatial_orbitals(formula)
+        assert result["verified_against_pyscf"] is True, formula
+        assert "PySCF" in result["note"]
+
+    for formula in ("C6H6", "CH3Cl", "Ne"):
+        result = sto3g_spatial_orbitals(formula)
+        assert result["verified_against_pyscf"] is False, formula
+        assert "PySCF" in result["note"]
 
 
 @pytest.mark.parametrize("formula", ["", "   ", "H2O)", "c6h6", "Xx2", "Fe2O3", "H0"])

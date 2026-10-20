@@ -114,6 +114,12 @@ NON_LIGAND_CODES = (
     WATER_CODES | ION_CODES | SUGAR_CODES | COFACTOR_CODES | BUFFER_CODES
 )
 
+# The drug-like filter used by "explore any PDB entry": a non-polymer group that
+# survives the exclusion above and has at least this many heavy atoms. Ten is the
+# same threshold the offline redocking pipeline uses, so a group called a ligand
+# in one place is not rejected as an additive in the other.
+MIN_DRUG_HEAVY_ATOMS = 10
+
 # Residues whose side-chain oxygens can carry a negative charge.
 ACIDIC_RESIDUES = {"ASP", "GLU"}
 # Residues whose side-chain nitrogens can carry a positive charge.
@@ -282,6 +288,40 @@ def _element_counts(atoms: list[PdbAtom]) -> dict[str, int]:
     for atom in atoms:
         counts[atom.element] = counts.get(atom.element, 0) + 1
     return dict(sorted(counts.items()))
+
+
+def drug_like_ligands(pdb_text: str) -> list[dict[str, Any]]:
+    """Every chemically distinct group that could be the drug, by the ligand rule.
+
+    A group qualifies when its deposited residue code is not water, an ion, a
+    sugar, a cofactor, a buffer/additive or a standard amino acid, and it has at
+    least ``MIN_DRUG_HEAVY_ATOMS`` heavy atoms. The count is measured from the
+    deposited atoms, so it cannot drift from what the file actually contains.
+
+    Copies of the same residue code (1HWK deposits four atorvastatin instances,
+    4EY7 two donepezil instances) are collapsed into one entry with
+    ``instance_count`` and ``chains``, because the caller chooses a chemical
+    ligand, not a particular copy. Ordering: largest heavy-atom count first, then
+    alphabetically, so it is deterministic.
+    """
+    collapsed: dict[str, dict[str, Any]] = {}
+    for candidate in ligand_candidates(pdb_text):
+        if candidate["category"] != "drug_like":
+            continue
+        if candidate["heavy_atom_count"] < MIN_DRUG_HEAVY_ATOMS:
+            continue
+        code = candidate["ligand_code"]
+        existing = collapsed.get(code)
+        if existing is None:
+            entry = dict(candidate)
+            entry["instance_count"] = 1
+            entry["chains"] = [candidate["chain"]] if candidate["chain"] else []
+            collapsed[code] = entry
+            continue
+        existing["instance_count"] += 1
+        if candidate["chain"] and candidate["chain"] not in existing["chains"]:
+            existing["chains"].append(candidate["chain"])
+    return list(collapsed.values())
 
 
 def select_ligand(atoms: list[PdbAtom], preferred_code: str | None = None) -> list[PdbAtom]:

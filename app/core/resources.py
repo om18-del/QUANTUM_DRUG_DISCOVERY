@@ -22,6 +22,7 @@ anything about an active space the caller chose).
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Any
 
 import numpy as np
@@ -75,14 +76,14 @@ def estimate_h2_resources(hamiltonian: NDArray) -> dict[str, Any]:
 # formula: no charge input is taken, so an ion or a radical is out of scope and
 # the payload says so.
 #
-# !! COUNTED BY RULE, NOT YET CONFIRMED AGAINST PySCF !!
-# These counts are derived from the basis definition above and are not verified
-# against an electronic-structure program on this host. The offline notebook
-# (scripts/precompute_hamiltonians.ipynb) cross-checks ``mol.nao`` for H2 and
-# LiH against this table, but that notebook needs PySCF and has not been run
-# here. The payload therefore carries ``verified_against_pyscf: False`` (see
-# STO3G_UNVERIFIED_NOTE) so a reader is never told the table was machine-checked
-# when it was not.
+# COUNTED BY RULE, AND CONFIRMED FOR FIVE FORMULAS ONLY.
+# These counts are derived from the basis definition above. Five of them were
+# independently checked against PySCF ``mol.nao`` (STO-3G) in Colab and agree;
+# they are listed in PYSCF_VERIFIED_COUNTS below and those formulas report
+# ``verified_against_pyscf: True``. Every other formula is still counted by rule
+# and reports False (see STO3G_UNVERIFIED_NOTE), so a reader is never told the
+# table as a whole was machine-checked when only five entries were. No PySCF
+# version is recorded anywhere, because no version was captured.
 
 STO3G_BASIS_FUNCTIONS_PER_ATOM: dict[str, int] = {
     "H": 1,
@@ -134,9 +135,33 @@ SUPPORTED_ELEMENTS: tuple[str, ...] = tuple(
 )
 
 STO3G_UNVERIFIED_NOTE = (
-    "Formula-derived from the STO-3G basis definition, not yet confirmed against "
-    "PySCF mol.nao. Treat as unverified until the offline notebook cross-check runs."
+    "Formula-derived from the STO-3G basis definition. This formula is not one of the "
+    "five whose counts were cross-checked against PySCF mol.nao (STO-3G) in Colab, so "
+    "treat the count as unverified."
 )
+
+STO3G_PYSCF_VERIFIED_NOTE = (
+    "Cross-checked against PySCF mol.nao (STO-3G) in Colab: the rule-based count matches "
+    "the PySCF run. The electron count is still the neutral-atom sum, and no PySCF version "
+    "was recorded."
+)
+
+# The formulas whose STO-3G counts were computed independently with PySCF
+# (``mol.nao``, STO-3G) in Colab and agree with the rule-based count. The key is
+# the formula as it is conventionally written and the value is the two numbers
+# that run reported. This table is the ONLY reason a payload may say
+# ``verified_against_pyscf: True``: a formula absent from it stays False, and an
+# entry whose computed counts disagree also stays False. Lookup is by atom
+# composition (see ``_composition_key``), not by string spelling, so "OH2" and
+# "H2O" are one molecule and ``LiH`` cannot be missed because Hill order would
+# spell it ``HLi``.
+PYSCF_VERIFIED_COUNTS: dict[str, dict[str, int]] = {
+    "H2": {"spatial_orbitals": 2, "electrons": 2},
+    "LiH": {"spatial_orbitals": 6, "electrons": 4},
+    "H2O": {"spatial_orbitals": 7, "electrons": 10},
+    "CH4": {"spatial_orbitals": 9, "electrons": 10},
+    "C9H8O4": {"spatial_orbitals": 73, "electrons": 94},
+}
 
 _FORMULA_TOKEN = re.compile(r"([A-Z][a-z]?)(\d*)")
 
@@ -201,13 +226,84 @@ def parse_formula_counts(formula: str) -> dict[str, int]:
     return counts
 
 
+def format_formula(counts: dict[str, int]) -> str:
+    """A canonical formula string in Hill order, from parsed atom counts.
+
+    Hill order: carbon first, then hydrogen, then the remaining symbols
+    alphabetically; with no carbon, every symbol alphabetically. A count of one
+    is written without the digit, so ``OH2`` and ``H2O`` both normalise to
+    ``H2O``. This is the key the PySCF verification table is looked up by, so two
+    spellings of one molecule cannot verify differently.
+    """
+    if "C" in counts:
+        order = ["C"] + (["H"] if "H" in counts else [])
+        order += sorted(element for element in counts if element not in order)
+    else:
+        order = sorted(counts)
+    return "".join(
+        element + (str(counts[element]) if counts[element] > 1 else "")
+        for element in order
+    )
+
+
+def normalise_formula(formula: str) -> str:
+    """The canonical spelling of a formula, as a payload reports it.
+
+    A composition in ``PYSCF_VERIFIED_COUNTS`` keeps the spelling it was
+    recorded under (``LiH``, rather than Hill order's ``HLi``); every other
+    formula gets Hill order (carbon first, then hydrogen, then alphabetical).
+    Verification itself does not depend on this string: the table is looked up
+    by composition, so a re-ordered spelling sees the same answer.
+    """
+    counts = parse_formula_counts(formula)
+    found = _pyscf_index().get(_composition_key(counts))
+    return found[0] if found is not None else format_formula(counts)
+
+
+def _composition_key(counts: dict[str, int]) -> str:
+    """A spelling-independent key: sorted symbols, every count written out.
+
+    ``H2O`` -> ``H2O1``, ``OH2`` -> ``H2O1`` (same key), ``LiH`` -> ``H1Li1``.
+    """
+    return "".join(f"{element}{counts[element]}" for element in sorted(counts))
+
+
+@lru_cache(maxsize=1)
+def _pyscf_index() -> dict[str, tuple[str, dict[str, int]]]:
+    """Composition key -> (the formula name in the table, its recorded counts)."""
+    return {
+        _composition_key(parse_formula_counts(name)): (name, entry)
+        for name, entry in PYSCF_VERIFIED_COUNTS.items()
+    }
+
+
+def _pyscf_record(
+    counts: dict[str, int], spatial_orbitals: int, electrons: int
+) -> tuple[str, dict[str, int]] | None:
+    """The verified table entry for this composition, or None.
+
+    None means one of two equally unverified things: the composition is not one
+    of the five, or it is but the computed counts no longer agree with what the
+    PySCF run reported (which would be a bug in this module, not a verified
+    number).
+    """
+    found = _pyscf_index().get(_composition_key(counts))
+    if found is None:
+        return None
+    name, entry = found
+    if entry["spatial_orbitals"] != spatial_orbitals or entry["electrons"] != electrons:
+        return None
+    return name, entry
+
+
 def sto3g_spatial_orbitals(formula: str) -> dict[str, Any]:
     """STO-3G spatial-orbital count for a formula.
 
     Counted by the minimal-basis rule, not computed by PySCF: see the module
-    note above. The count is deliberately returned alongside
-    ``verified_against_pyscf: False`` so a caller cannot quietly present it as a
-    checked number.
+    note above. The count is returned alongside ``verified_against_pyscf``,
+    which is True only for a formula in PYSCF_VERIFIED_COUNTS whose computed
+    count agrees with the recorded one, so a caller cannot present an unchecked
+    count as a checked number.
     """
     counts = parse_formula_counts(formula)
     unsupported = sorted(
@@ -221,13 +317,20 @@ def sto3g_spatial_orbitals(formula: str) -> dict[str, Any]:
         element: counts[element] * STO3G_BASIS_FUNCTIONS_PER_ATOM[element]
         for element in sorted(counts)
     }
+    total = sum(per_element.values())
+    record = _pyscf_record(counts, total, electron_count(formula))
+    verified = record is not None
+    # The five verified formulas keep the spelling they were recorded under;
+    # anything else gets the Hill-order spelling of its own composition.
+    normalised = record[0] if record is not None else format_formula(counts)
     return {
         "formula": formula,
+        "normalised_formula": normalised,
         "atom_counts": {element: counts[element] for element in sorted(counts)},
         "basis_functions_per_element": per_element,
-        "spatial_orbitals": sum(per_element.values()),
-        "verified_against_pyscf": False,
-        "note": STO3G_UNVERIFIED_NOTE,
+        "spatial_orbitals": total,
+        "verified_against_pyscf": verified,
+        "note": STO3G_PYSCF_VERIFIED_NOTE if verified else STO3G_UNVERIFIED_NOTE,
     }
 
 
@@ -350,6 +453,9 @@ def estimate_resources(formula: str, active_orbitals: int | None = None) -> dict
     basis = sto3g_spatial_orbitals(formula)
     n_spatial = basis["spatial_orbitals"]
     n_electrons = electron_count(formula)
+    # True only for the five formulas cross-checked with PySCF mol.nao. The
+    # active-space block describes an approximation and changes nothing here.
+    verified_against_pyscf = bool(basis["verified_against_pyscf"])
     n_qubits_full = 2 * n_spatial
     n_qubits_reduced = n_qubits_full - 2
 
@@ -390,8 +496,16 @@ def estimate_resources(formula: str, active_orbitals: int | None = None) -> dict
             "simulation exists for this molecule."
         ),
         "verification": (
-            "The STO-3G orbital counts are counted from the minimal-basis rule, not read from a "
-            "basis file, and have not been cross-checked against PySCF on this host."
+            f"The STO-3G counts for {basis['normalised_formula']} were cross-checked with PySCF "
+            f"mol.nao (STO-3G) in Colab and match this rule-based count "
+            f"({n_spatial} spatial orbitals, {n_electrons} electrons). No PySCF version was "
+            "recorded, and the electron count is still the neutral-atom sum."
+            if verified_against_pyscf
+            else (
+                "The STO-3G orbital counts are counted from the minimal-basis rule, not read "
+                "from a basis file, and are not among the five formulas cross-checked against "
+                "PySCF mol.nao in Colab; treat this formula's count as unverified."
+            )
         ),
     }
     if n_electrons % 2:
@@ -405,6 +519,7 @@ def estimate_resources(formula: str, active_orbitals: int | None = None) -> dict
         "subject": {
             "input": formula,
             "formula": basis["formula"],
+            "normalised_formula": basis["normalised_formula"],
             "atom_counts": basis["atom_counts"],
         },
         "basis": "STO-3G",
@@ -470,6 +585,6 @@ def estimate_resources(formula: str, active_orbitals: int | None = None) -> dict
 
     payload["tags"] = tags
     payload["notes"] = notes
-    payload["verified_against_pyscf"] = False
+    payload["verified_against_pyscf"] = verified_against_pyscf
     payload["classical_simulation"] = True
     return payload

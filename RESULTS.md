@@ -15,6 +15,7 @@ Every measured number that appears in a slide, a report or the README is listed 
 | H2 VQE vs exact at 0.5 / 0.74 / 1.5 / 2.5 Å, noiseless, seed 7 | \|VQE - exact\| = 2.7e-10 / 8.0e-12 / 6.0e-13 / 5.4e-4 Ha — all below the 1.6 mHa target | `python scripts/measure_h2_vqe.py` | 2026-10-13 | scripts/measure_h2_vqe.py |
 | Worst H2 VQE error over all 58 stored points, noiseless, seed 7 | 1.016e-3 Ha at 2.65 Å (target 1.6e-3 Ha); every point inside chemical accuracy, no variational-principle refusal | `python scripts/measure_h2_vqe.py --all` | 2026-10-13 | scripts/measure_h2_vqe.py |
 | STO-3G resource estimates for five molecules (spatial orbitals / electrons / full qubits / reduced qubits / statevector memory / verdict) | H2 2/2/4/2, 64 bytes, `simulable_in_app`; LiH 6/4/12/10, 16.0 KB, `precompute_only`; H2O 7/10/14/12, 64.0 KB, `precompute_only`; CH4 9/10/18/16, 1.0 MB, `precompute_only`; C9H8O4 (aspirin) 73/94/146/144, more than 10^15 bytes, `beyond_classical_simulation` | `python scripts/estimate_resources_examples.py` | 2026-10-14 | scripts/estimate_resources_examples.py |
+| STO-3G orbital counts cross-checked with PySCF `mol.nao` (the five formulas above) | H2 2, LiH 6, H2O 7, CH4 9, C9H8O4 73 spatial orbitals — all match the formula-derived counts; electrons 2/4/10/10/94. Run in a Colab session, **not reproducible in this repository** (no PySCF wheel here) and no PySCF version was recorded | PySCF `mol.nao` with the STO-3G basis, reported for this project | not recorded | not in this repository; recorded in `PYSCF_VERIFIED_COUNTS`, `app/core/resources.py` |
 
 ## First real VQE measurement (2026-10-13)
 
@@ -68,7 +69,33 @@ The verdicts come from `interactive_cap_qubits: 8` (this app's own limit, a proj
 `laptop_statevector_ceiling_qubits: 25` (a rough estimate); they are project limits and rough
 estimates, not measured hardware or algorithm bounds. `simulable_in_app` means the size fits the
 app's budget, **not** that a simulation was run — none of these five molecules is simulated by
-this build, and H2 is the only molecule with a VQE ansatz. The orbital counts are counted by
-rule and have **not** been cross-checked against a basis file here: every payload carries
-`verified_against_pyscf: false` (see LIMITATIONS.md). No Pauli-term count or circuit size is
+this build, and H2 is the only molecule with a VQE ansatz. No Pauli-term count or circuit size is
 reported for any of them, because a formula cannot give one.
+
+**Orbital counts for these five molecules were cross-checked with PySCF `mol.nao` in Colab; other
+formulas are counted by the same rule but not machine-confirmed.** The five payloads therefore
+carry `verified_against_pyscf: true`, every other formula `false` (see LIMITATIONS.md). No PySCF
+version is recorded, because none was captured, and the check is not re-run in this repository.
+
+## Redocking validation: results pending the Colab run (no numbers yet)
+
+`scripts/redock_validation.py` redocks 1VRT, 2HU4 and 1HSG offline and would write its per-pose
+RMSDs and Vina scores to `app/data/docking/redock_validation.json`, which is produced by the
+Colab run of `scripts/redock_validation.ipynb` (`python scripts/redock_validation.py OUT.json`,
+by default `--exhaustiveness 16 --seed 7`). **That run has not happened and the file is not in
+this repository, so there is no redocking number to list above** — no RMSD, no Vina score,
+nothing in the API and nothing in the UI. The pipeline itself has been written and tested, but a
+pipeline is not a result.
+
+When it runs, every number that reaches a slide or a report gets a row in the table above with
+the command that produced it. Two things must be said alongside any such row: a redocking pass
+means the search rediscovered a pose **that was already inside a 22 A box centred on the true
+crystal site**, which is an easy test and says nothing about virtual screening or affinity
+prediction; and a Vina score is a **prediction, not measured binding**, never a Kd, Ki or IC50.
+
+**Recording rule (applies to the first run and every rerun).** "The first complete run of the
+redocking pipeline at the fixed settings is the record, whatever it shows, including failures.
+Any rerun needs a dated log entry stating why; both results stay on file. Parameters are not
+tuned per target to obtain a pass." `tests/test_result_file_guardrails.py` validates the committed
+file as soon as it exists, so a result cannot arrive here without the schema and honesty checks
+having run.
